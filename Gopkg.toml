@@ -1,0 +1,26 @@
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  branch = "master"
+
+[[constraint]]
+  name = "github.com/thecodeteam/gocsi"
+  branch = "master"
+
+[[constraint]]
+  name = "github.com/thecodeteam/goioc"
+  version = "0.2.0"
+
+[[constraint]]
+  name = "github.com/thecodeteam/goscaleio"
+  branch = "master"
+
+[[constraint]]
+  name = "golang.org/x/net"
+  branch = "master"
+
+[[constraint]]
+  name = "google.golang.org/grpc"
+  version = "1.7.3"
