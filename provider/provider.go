@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	log "github.com/sirupsen/logrus"
 	"github.com/thecodeteam/gocsi"
-	"github.com/thecodeteam/gocsi/csi"
 	"github.com/thecodeteam/goioc"
 	"google.golang.org/grpc"
 
@@ -213,17 +213,17 @@ func (p *provider) Serve(ctx context.Context, li net.Listener) error {
 			NodeServiceOnly, ControllerServiceOnly)
 	}
 	switch {
-	//case nodeSvc:
-	//	csi.RegisterNodeServer(p.server, p.service)
-	//	log.Debug("Added Node Service")
+	case nodeSvc:
+		csi.RegisterNodeServer(p.server, p.service)
+		log.Debug("Added Node Service")
 	case ctrlSvc:
 		csi.RegisterControllerServer(p.server, p.service)
 		log.Debug("Added Controller Service")
 	default:
 		csi.RegisterControllerServer(p.server, p.service)
 		log.Debug("Added Controller Service")
-		//csi.RegisterNodeServer(p.server, p.service)
-		//log.Debug("Added Node Service")
+		csi.RegisterNodeServer(p.server, p.service)
+		log.Debug("Added Node Service")
 	}
 	// Start the grpc server
 	log.WithFields(map[string]interface{}{

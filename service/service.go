@@ -6,10 +6,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	log "github.com/sirupsen/logrus"
-
 	"github.com/thecodeteam/gocsi"
-	"github.com/thecodeteam/gocsi/csi"
 	sio "github.com/thecodeteam/goscaleio"
 	siotypes "github.com/thecodeteam/goscaleio/types/v1"
 )
@@ -51,12 +50,17 @@ const (
 	// that thick provisioning should be used when creating volumes
 	EnvThick = "X_CSI_SCALEIO_THICKPROVISIONING"
 
+	// EnvPrivateDir is the name of the enviroment variable used to specify
+	// the path of a private directory used for bind mounting volumes
+	EnvPrivateDir = "X_CSI_SCALEIO_PRIVDIR"
+
 	// KeyThickProvisioning is the key used to get a flag indicating that
 	// a volume should be thick provisioned from the volume create params
 	KeyThickProvisioning = "thickprovisioning"
 
 	thinProvisioned  = "ThinProvisioned"
 	thickProvisioned = "ThickProvisioned"
+	defaultPrivDir   = "/dev/disk/csi-scaleio"
 )
 
 var (
@@ -74,7 +78,7 @@ var (
 type Service interface {
 	csi.ControllerServer
 	csi.IdentityServer
-	//csi.NodeServer
+	csi.NodeServer
 	gocsi.IdempotencyProvider
 }
 
@@ -96,6 +100,7 @@ type service struct {
 	volCacheRWL sync.RWMutex
 	sdcMap      map[string]string
 	sdcMapRWL   sync.RWMutex
+	privDir     string
 }
 
 // New returns a new Service.
@@ -135,14 +140,20 @@ func New(
 	opts.Insecure = pb(EnvInsecure)
 	opts.Thick = pb(EnvThick)
 
+	privDir := getEnv(EnvPrivateDir)
+	if privDir == "" {
+		privDir = defaultPrivDir
+	}
+
 	fields := map[string]interface{}{
-		"endpoint":       opts.Endpoint,
-		"user":           opts.User,
-		"password":       "",
-		"systemname":     opts.SystemName,
-		"sdcGUID":        opts.SdcGUID,
-		"insecure":       opts.Insecure,
-		"thickprovision": opts.Thick,
+		"endpoint":         opts.Endpoint,
+		"user":             opts.User,
+		"password":         "",
+		"systemname":       opts.SystemName,
+		"sdcGUID":          opts.SdcGUID,
+		"insecure":         opts.Insecure,
+		"thickprovision":   opts.Thick,
+		"privatedirectory": privDir,
 	}
 
 	if opts.Password != "" {
@@ -152,8 +163,9 @@ func New(
 	log.WithFields(fields).Info("configured ScaleIO parameters")
 
 	s := &service{
-		opts:   opts,
-		sdcMap: map[string]string{},
+		opts:    opts,
+		sdcMap:  map[string]string{},
+		privDir: privDir,
 	}
 	return s
 }
@@ -213,7 +225,7 @@ func (s *service) getSDCID(sdcGUID string) (string, error) {
 	// Need to translate sdcGUID to sdcID
 	id, err := s.system.FindSdc("SdcGuid", sdcGUID)
 	if err != nil {
-		return "", fmt.Errorf("error finding SDC from GUID: %s, err: ",
+		return "", fmt.Errorf("error finding SDC from GUID: %s, err: %s",
 			sdcGUID, err.Error())
 	}
 

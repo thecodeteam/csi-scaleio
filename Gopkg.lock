@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  branch = "master"
+  name = "github.com/container-storage-interface/spec"
+  packages = ["lib/go/csi"]
+  revision = "4ac2d13f89360f2da40d188473d77f2ec56b9d0d"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
@@ -34,8 +40,14 @@
 [[projects]]
   branch = "master"
   name = "github.com/thecodeteam/gocsi"
-  packages = [".","csi"]
-  revision = "cb9679b1b99c315ecdb11845fa3fbe5aaf5245a1"
+  packages = ["."]
+  revision = "6b616ce9327a6e0ff3513b1812475a783c186c03"
+
+[[projects]]
+  name = "github.com/thecodeteam/gofsutil"
+  packages = ["."]
+  revision = "c8c8c91566a91a907494e33a631b1b95c4aa0f19"
+  version = "v0.1.0"
 
 [[projects]]
   name = "github.com/thecodeteam/goioc"
@@ -88,6 +100,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ea169e96f8a9c04e713f48a38bd97dcda7b5bf68d4968c06dcd2020bd84d5e8b"
+  inputs-digest = "a14cdb1899abdbb48c7baa1c83044ae0e7992ea4377d1a25a69135f75112c690"
   solver-name = "gps-cdcl"
   solver-version = 1

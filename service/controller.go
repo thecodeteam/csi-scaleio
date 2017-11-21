@@ -9,12 +9,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	log "github.com/sirupsen/logrus"
 	"github.com/thecodeteam/goscaleio"
 	siotypes "github.com/thecodeteam/goscaleio/types/v1"
 
 	"github.com/thecodeteam/gocsi"
-	"github.com/thecodeteam/gocsi/csi"
 )
 
 const (
@@ -265,6 +265,8 @@ func (s *service) ControllerPublishVolume(
 	if len(vol.MappedSdcInfo) > 0 {
 		vcs := []*csi.VolumeCapability{req.GetVolumeCapability()}
 		isBlock := accTypeIsBlock(vcs)
+
+		// TODO look for case where it is already published to us
 
 		if !vol.MappingToAllSdcsEnabled {
 			return nil, status.Error(codes.AlreadyExists,

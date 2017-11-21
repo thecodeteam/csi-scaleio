@@ -24,3 +24,11 @@
 [[constraint]]
   name = "google.golang.org/grpc"
   version = "1.7.3"
+
+[[constraint]]
+  name = "github.com/container-storage-interface/spec"
+  branch = "master"
+
+[[constraint]]
+  name = "github.com/thecodeteam/gofsutil"
+  branch = "master"

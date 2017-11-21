@@ -1,16 +1,27 @@
-// +build none
-
 package service
 
 import (
-	"path"
+	"bufio"
+	"bytes"
+	"os"
+	"os/exec"
+	"strings"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
+	log "github.com/sirupsen/logrus"
+	"github.com/thecodeteam/goscaleio"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
 
-	"golang.org/x/net/context"
+const (
+	drvCfg = "/opt/emc/scaleio/sdc/bin/drv_cfg"
+)
 
-	"github.com/thecodeteam/gocsi/csi"
+var (
+	emptyNodePubResp   = &csi.NodePublishVolumeResponse{}
+	emptyNodeUnpubResp = &csi.NodeUnpublishVolumeResponse{}
 )
 
 func (s *service) NodePublishVolume(
@@ -18,26 +29,18 @@ func (s *service) NodePublishVolume(
 	req *csi.NodePublishVolumeRequest) (
 	*csi.NodePublishVolumeResponse, error) {
 
-	device, ok := req.PublishVolumeInfo["device"]
-	if !ok {
-		return nil, status.Error(
-			codes.InvalidArgument,
-			"publish volume info 'device' key required")
+	id := req.GetVolumeId()
+
+	sdcMappedVol, err := getMappedVol(id)
+	if err != nil {
+		return nil, err
 	}
 
-	// nodeMntPathKey is the key in the volume's attributes that is set to a
-	// mock mount path if the volume has been published by the node
-	nodeMntPathKey := path.Join(s.nodeID, req.TargetPath)
+	if err := publishVolume(req, s.privDir, sdcMappedVol.SdcDevice); err != nil {
+		return nil, err
+	}
 
-	s.volsRWL.Lock()
-	defer s.volsRWL.Unlock()
-
-	// Publish the volume.
-	i, v := s.findVolNoLock("id", req.VolumeId)
-	v.Attributes[nodeMntPathKey] = device
-	s.vols[i] = v
-
-	return &csi.NodePublishVolumeResponse{}, nil
+	return emptyNodePubResp, nil
 }
 
 func (s *service) NodeUnpublishVolume(
@@ -45,19 +48,40 @@ func (s *service) NodeUnpublishVolume(
 	req *csi.NodeUnpublishVolumeRequest) (
 	*csi.NodeUnpublishVolumeResponse, error) {
 
-	// nodeMntPathKey is the key in the volume's attributes that is set to a
-	// mock mount path if the volume has been published by the node
-	nodeMntPathKey := path.Join(s.nodeID, req.TargetPath)
+	id := req.GetVolumeId()
 
-	s.volsRWL.Lock()
-	defer s.volsRWL.Unlock()
+	sdcMappedVol, err := getMappedVol(id)
+	if err != nil {
+		return nil, err
+	}
 
-	// Unpublish the volume.
-	i, v := s.findVolNoLock("id", req.VolumeId)
-	delete(v.Attributes, nodeMntPathKey)
-	s.vols[i] = v
+	if err := unpublishVolume(req, s.privDir, sdcMappedVol.SdcDevice); err != nil {
+		return nil, err
+	}
 
-	return &csi.NodeUnpublishVolumeResponse{}, nil
+	return emptyNodeUnpubResp, nil
+}
+
+func getMappedVol(id string) (*goscaleio.SdcMappedVolume, error) {
+	// get source path of volume/device
+	localVols, err := goscaleio.GetLocalVolumeMap()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal,
+			"unable to get locally mapped ScaleIO volumes: %s",
+			err.Error())
+	}
+	var sdcMappedVol *goscaleio.SdcMappedVolume
+	for _, v := range localVols {
+		if v.VolumeID == id {
+			sdcMappedVol = v
+			break
+		}
+	}
+	if sdcMappedVol == nil {
+		return nil, status.Errorf(codes.Unavailable,
+			"volume: %s not published to node", id)
+	}
+	return sdcMappedVol, nil
 }
 
 func (s *service) GetNodeID(
@@ -65,8 +89,12 @@ func (s *service) GetNodeID(
 	req *csi.GetNodeIDRequest) (
 	*csi.GetNodeIDResponse, error) {
 
+	if s.opts.SdcGUID == "" {
+		return nil, status.Error(codes.FailedPrecondition,
+			"Unable to get Node ID. Either it is not configured, or Node Service has been probed")
+	}
 	return &csi.GetNodeIDResponse{
-		NodeId: s.nodeID,
+		NodeId: s.opts.SdcGUID,
 	}, nil
 }
 
@@ -75,7 +103,57 @@ func (s *service) NodeProbe(
 	req *csi.NodeProbeRequest) (
 	*csi.NodeProbeResponse, error) {
 
+	if s.opts.SdcGUID == "" {
+		// try to get GUID using `drv_cfg` binary
+		if _, err := os.Stat(drvCfg); os.IsNotExist(err) {
+			return nil, status.Error(codes.FailedPrecondition,
+				"unable to get SDC GUID via config or drv_cfg binary")
+		}
+
+		out, err := exec.Command(drvCfg, "--query_guid").CombinedOutput()
+		if err != nil {
+			return nil, status.Errorf(codes.FailedPrecondition,
+				"error getting SDC GUID: %s", err.Error())
+		}
+
+		s.opts.SdcGUID = strings.TrimSpace(string(out))
+		log.WithField("guid", s.opts.SdcGUID).Info("set SDC GUID")
+	}
+
+	if !kmodLoaded() {
+		return nil, status.Error(codes.FailedPrecondition,
+			"scini kernel module not loaded")
+	}
+
+	// make sure privDir is pre-created
+	if _, err := mkdir(s.privDir); err != nil {
+		return nil, status.Errorf(codes.Internal,
+			"plugin private dir: %s creation error: %s",
+			s.privDir, err.Error())
+	}
+
 	return &csi.NodeProbeResponse{}, nil
+}
+
+func kmodLoaded() bool {
+	out, err := exec.Command("lsmod").CombinedOutput()
+	if err != nil {
+		log.WithError(err).Error("error from lsmod")
+		return false
+	}
+
+	r := bytes.NewReader(out)
+	s := bufio.NewScanner(r)
+
+	for s.Scan() {
+		l := s.Text()
+		words := strings.Split(l, " ")
+		if words[0] == "scini" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *service) NodeGetCapabilities(
@@ -83,15 +161,5 @@ func (s *service) NodeGetCapabilities(
 	req *csi.NodeGetCapabilitiesRequest) (
 	*csi.NodeGetCapabilitiesResponse, error) {
 
-	return &csi.NodeGetCapabilitiesResponse{
-		Capabilities: []*csi.NodeServiceCapability{
-			&csi.NodeServiceCapability{
-				Type: &csi.NodeServiceCapability_Rpc{
-					Rpc: &csi.NodeServiceCapability_RPC{
-						Type: csi.NodeServiceCapability_RPC_UNKNOWN,
-					},
-				},
-			},
-		},
-	}, nil
+	return &csi.NodeGetCapabilitiesResponse{}, nil
 }

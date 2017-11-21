@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/thecodeteam/gocsi"
-	"github.com/thecodeteam/gocsi/csi"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
 // mapOfStringArg is used for parsing a csv, key=value arg into
@@ -57,9 +57,9 @@ func (s *csiVersionArg) Type() string {
 }
 
 func (s *csiVersionArg) Set(val string) error {
-	var err error
-	if s.Version, err = gocsi.ParseVersion(val); err != nil {
-		return err
+	var ok bool
+	if s.Version, ok = gocsi.ParseVersion(val); !ok {
+		return fmt.Errorf("invalid versions: %s", val)
 	}
 	return nil
 }
