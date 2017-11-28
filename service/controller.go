@@ -48,9 +48,10 @@ const (
 )
 
 var (
-	emptyDelResp   = &csi.DeleteVolumeResponse{}
-	emptyProbeResp = &csi.ControllerProbeResponse{}
-	emptyUnpubResp = &csi.ControllerUnpublishVolumeResponse{}
+	emptyDelResp       = &csi.DeleteVolumeResponse{}
+	emptyProbeResp     = &csi.ControllerProbeResponse{}
+	emptyCtrlPubResp   = &csi.ControllerPublishVolumeResponse{}
+	emptyCtrlUnpubResp = &csi.ControllerUnpublishVolumeResponse{}
 )
 
 func (s *service) CreateVolume(
@@ -261,12 +262,18 @@ func (s *service) ControllerPublishVolume(
 		return nil, status.Error(codes.InvalidArgument,
 			errUnknownAccessMode)
 	}
-	// Check if volume is published to another node already
+	// Check if volume is published to any node already
 	if len(vol.MappedSdcInfo) > 0 {
 		vcs := []*csi.VolumeCapability{req.GetVolumeCapability()}
 		isBlock := accTypeIsBlock(vcs)
 
-		// TODO look for case where it is already published to us
+		for _, sdc := range vol.MappedSdcInfo {
+			if sdc.SdcID == sdcID {
+				// volume already mapped
+				log.Debug("volume already mapped")
+				return emptyCtrlPubResp, nil
+			}
+		}
 
 		if !vol.MappingToAllSdcsEnabled {
 			return nil, status.Error(codes.AlreadyExists,
@@ -309,7 +316,7 @@ func (s *service) ControllerPublishVolume(
 			"error mapping volume to node: %s", err.Error())
 	}
 
-	return &csi.ControllerPublishVolumeResponse{}, nil
+	return emptyCtrlPubResp, nil
 }
 
 func (s *service) ControllerUnpublishVolume(
@@ -358,7 +365,7 @@ func (s *service) ControllerUnpublishVolume(
 	}
 
 	if !mappedToNode {
-		return emptyUnpubResp, nil
+		return emptyCtrlUnpubResp, nil
 	}
 
 	targetVolume := goscaleio.NewVolume(s.adminClient)
@@ -375,7 +382,7 @@ func (s *service) ControllerUnpublishVolume(
 			"error unmapping volume from node: %s", err.Error())
 	}
 
-	return emptyUnpubResp, nil
+	return emptyCtrlUnpubResp, nil
 }
 
 func (s *service) ValidateVolumeCapabilities(
