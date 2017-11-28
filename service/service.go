@@ -100,6 +100,8 @@ type service struct {
 	volCacheRWL sync.RWMutex
 	sdcMap      map[string]string
 	sdcMapRWL   sync.RWMutex
+	spCache     map[string]string
+	spCacheRWL  sync.RWMutex
 	privDir     string
 }
 
@@ -165,6 +167,7 @@ func New(
 	s := &service{
 		opts:    opts,
 		sdcMap:  map[string]string{},
+		spCache: map[string]string{},
 		privDir: privDir,
 	}
 	return s
@@ -235,6 +238,34 @@ func (s *service) getSDCID(sdcGUID string) (string, error) {
 	s.sdcMap[sdcGUID] = id.Sdc.ID
 
 	return id.Sdc.ID, nil
+}
+
+func (s *service) getStoragePoolID(name string) (string, error) {
+	// check if ID is already in cache
+	f := func() string {
+		s.spCacheRWL.RLock()
+		defer s.spCacheRWL.RUnlock()
+
+		if id, ok := s.spCache[name]; ok {
+			return id
+		}
+		return ""
+	}
+	if id := f(); id != "" {
+		return id, nil
+	}
+
+	// Need to lookup ID from the gateway
+	pool, err := s.adminClient.FindStoragePool("", name, "")
+	if err != nil {
+		return "", err
+	}
+
+	s.spCacheRWL.Lock()
+	defer s.spCacheRWL.Unlock()
+	s.spCache[name] = pool.ID
+
+	return pool.ID, nil
 }
 
 func getCSIVolumeInfo(vol *siotypes.Volume) *csi.VolumeInfo {

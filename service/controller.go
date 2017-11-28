@@ -40,11 +40,13 @@ const (
 	// bytesInGiB is the number of bytes in a gibibyte
 	bytesInGiB = kiBytesInGiB * bytesInKiB
 
-	removeModeOnlyMe         = "ONLY_ME"
-	sioGatewayVolumeNotFound = "Could not find the volume"
-	errNoMultiMap            = "volume not enabled for mapping to multiple hosts"
-	errUnknownAccessMode     = "access mode cannot be UNKNOWN"
-	errNoMultiNodeWriter     = "multi-node with writer(s) only supported for block access type"
+	removeModeOnlyMe          = "ONLY_ME"
+	sioGatewayNotFound        = "Not found"
+	sioGatewayVolumeNotFound  = "Could not find the volume"
+	sioGatewayVolumeNameInUse = "Volume name already in use. Please use a different name."
+	errNoMultiMap             = "volume not enabled for mapping to multiple hosts"
+	errUnknownAccessMode      = "access mode cannot be UNKNOWN"
+	errNoMultiNodeWriter      = "multi-node with writer(s) only supported for block access type"
 )
 
 var (
@@ -102,16 +104,48 @@ func (s *service) CreateVolume(
 	}
 	createResp, err := s.adminClient.CreateVolume(volumeParam, sp)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal,
-			"error when creating volume: %s", err.Error())
+		// handle case where volume already exists
+		if !strings.EqualFold(err.Error(), sioGatewayVolumeNameInUse) {
+			return nil, status.Errorf(codes.Internal,
+				"error when creating volume: %s", err.Error())
+		}
 	}
 
-	vol, err := s.getVolByID(createResp.ID)
+	var id string
+	if createResp == nil {
+		// volume already exists, look it up by name
+		id, err = s.GetVolumeID(ctx, name)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+	} else {
+		id = createResp.ID
+	}
+
+	vol, err := s.getVolByID(id)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable,
 			"error retrieving volume details: %s", err.Error())
 	}
 	vi := getCSIVolumeInfo(vol)
+
+	// since the volume could have already exists, double check that the
+	// volume has the expected parameters
+	spID, err := s.getStoragePoolID(sp)
+	if err != nil {
+		return nil, status.Errorf(codes.Unavailable,
+			"volume exists, but could not verify parameters: %s",
+			err.Error())
+	}
+	if vol.StoragePoolID != spID {
+		return nil, status.Errorf(codes.Unavailable,
+			"volume exists, but in different storage pool than requested")
+	}
+
+	if (vi.CapacityBytes / bytesInKiB) != uint64(sizeInKiB) {
+		return nil, status.Errorf(codes.Unavailable,
+			"volume exists, but at different size than requested")
+	}
 
 	csiResp := &csi.CreateVolumeResponse{
 		VolumeInfo: vi,
