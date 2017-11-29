@@ -641,12 +641,34 @@ func (s *service) GetCapacity(
 		return nil, status.Error(codes.FailedPrecondition,
 			"Controller Service has not been probed")
 	}
-	/*
-		return &csi.GetCapacityResponse{
-			AvailableCapacity: tib100,
-		}, nil
-	*/
-	return nil, status.Error(codes.Unimplemented, "")
+
+	var statsFunc func() (*siotypes.Statistics, error)
+
+	// Default to get Capacity of system
+	statsFunc = s.system.GetStatistics
+
+	params := req.GetParameters()
+	if len(params) > 0 {
+		// if storage pool is given, get capacity of storage pool
+		if spname, ok := params[KeyStoragePool]; ok {
+			sp, err := s.adminClient.FindStoragePool("", spname, "")
+			if err != nil {
+				return nil, status.Errorf(codes.Internal,
+					"unable to look up storage pool: %s, err: %s",
+					spname, err.Error())
+			}
+			spc := goscaleio.NewStoragePoolEx(s.adminClient, sp)
+			statsFunc = spc.GetStatistics
+		}
+	}
+	stats, err := statsFunc()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal,
+			"unable to get system stats: %s", err.Error())
+	}
+	return &csi.GetCapacityResponse{
+		AvailableCapacity: uint64(stats.CapacityAvailableForVolumeAllocationInKb) * bytesInKiB,
+	}, nil
 }
 
 func (s *service) ControllerGetCapabilities(
@@ -677,14 +699,13 @@ func (s *service) ControllerGetCapabilities(
 					},
 				},
 			},
-			/*
-				&csi.ControllerServiceCapability{
-					Type: &csi.ControllerServiceCapability_Rpc{
-						Rpc: &csi.ControllerServiceCapability_RPC{
-							Type: csi.ControllerServiceCapability_RPC_GET_CAPACITY,
-						},
+			&csi.ControllerServiceCapability{
+				Type: &csi.ControllerServiceCapability_Rpc{
+					Rpc: &csi.ControllerServiceCapability_RPC{
+						Type: csi.ControllerServiceCapability_RPC_GET_CAPACITY,
 					},
-				},*/
+				},
+			},
 		},
 	}, nil
 }

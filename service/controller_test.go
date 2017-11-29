@@ -23,7 +23,7 @@ func TestControllerGetCaps(t *testing.T) {
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME:     struct{}{},
 		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME: struct{}{},
 		csi.ControllerServiceCapability_RPC_LIST_VOLUMES:             struct{}{},
-		//csi.ControllerServiceCapability_RPC_GET_CAPACITY:             struct{}{},
+		csi.ControllerServiceCapability_RPC_GET_CAPACITY:             struct{}{},
 	}
 
 	resp, err := client.ControllerGetCapabilities(ctx,
