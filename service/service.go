@@ -15,7 +15,7 @@ import (
 
 const (
 	// Name is the name of the CSI plug-in.
-	Name = "csi-scaleio"
+	Name = "com.thecodeteam.scaleio"
 
 	// VendorVersion is the version returned by GetPluginInfo.
 	VendorVersion = "0.1.0"
