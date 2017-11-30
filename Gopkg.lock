@@ -41,7 +41,7 @@
   branch = "master"
   name = "github.com/thecodeteam/gocsi"
   packages = [".","csp"]
-  revision = "53d4e71d78fbb4eb2eb07a2a83502458ec4ed4fd"
+  revision = "3c9764863d9a27c639b98b114e334b1e0f8a93c9"
 
 [[projects]]
   name = "github.com/thecodeteam/gofsutil"
