@@ -40,20 +40,14 @@
 [[projects]]
   branch = "master"
   name = "github.com/thecodeteam/gocsi"
-  packages = ["."]
-  revision = "6b616ce9327a6e0ff3513b1812475a783c186c03"
+  packages = [".","csp"]
+  revision = "53d4e71d78fbb4eb2eb07a2a83502458ec4ed4fd"
 
 [[projects]]
   name = "github.com/thecodeteam/gofsutil"
   packages = ["."]
   revision = "c8c8c91566a91a907494e33a631b1b95c4aa0f19"
   version = "v0.1.0"
-
-[[projects]]
-  name = "github.com/thecodeteam/goioc"
-  packages = ["."]
-  revision = "bcc5c533363c5bb3eb0651a1413889ec71822200"
-  version = "v0.2.0"
 
 [[projects]]
   branch = "master"
@@ -100,6 +94,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a14cdb1899abdbb48c7baa1c83044ae0e7992ea4377d1a25a69135f75112c690"
+  inputs-digest = "7ce93578aa91e44a6f794b70376c4c25b64289c4a4cfd79ac59e67d8aa237a95"
   solver-name = "gps-cdcl"
   solver-version = 1

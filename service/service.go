@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -9,6 +11,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	log "github.com/sirupsen/logrus"
 	"github.com/thecodeteam/gocsi"
+	"github.com/thecodeteam/gocsi/csp"
 	sio "github.com/thecodeteam/goscaleio"
 	siotypes "github.com/thecodeteam/goscaleio/types/v1"
 )
@@ -20,39 +23,8 @@ const (
 	// VendorVersion is the version returned by GetPluginInfo.
 	VendorVersion = "0.1.0"
 
-	// EnvEndpoint is the name of the enviroment variable used to set the
-	// HTTP endoing of the ScaleIO Gateway
-	EnvEndpoint = "X_CSI_SCALEIO_ENDPOINT"
-
-	// EnvUser is the name of the enviroment variable used to set the
-	// username when authenticating to the ScaleIO Gateway
-	EnvUser = "X_CSI_SCALEIO_USER"
-
-	// EnvPassword is the name of the enviroment variable used to set the
-	// user's password when authenticating to the ScaleIO Gateway
-	EnvPassword = "X_CSI_SCALEIO_PASSWORD"
-
-	// EnvInsecure is the name of the enviroment variable used to specify
-	// that the ScaleIO Gateway's certificate chain and host name should not
-	// be verified
-	EnvInsecure = "X_CSI_SCALEIO_INSECURE"
-
-	// EnvSystemName is the name of the enviroment variable used to set the
-	// name of the ScaleIO system to interact with
-	EnvSystemName = "X_CSI_SCALEIO_SYSTEMNAME"
-
-	// EnvSDCGUID is the name of the enviroment variable used to set the
-	// GUID of the SDC. This is only used by the Node Service, and removes
-	// a need for calling an external binary to retrieve the GUID
-	EnvSDCGUID = "X_CSI_SCALEIO_SDCGUID"
-
-	// EnvThick is the name of the enviroment variable used to specify
-	// that thick provisioning should be used when creating volumes
-	EnvThick = "X_CSI_SCALEIO_THICKPROVISIONING"
-
-	// EnvPrivateDir is the name of the enviroment variable used to specify
-	// the path of a private directory used for bind mounting volumes
-	EnvPrivateDir = "X_CSI_SCALEIO_PRIVDIR"
+	// SupportedVersions is a list of supported CSI versions.
+	SupportedVersions = "0.1.0"
 
 	// KeyThickProvisioning is the key used to get a flag indicating that
 	// a volume should be thick provisioned from the volume create params
@@ -63,23 +35,13 @@ const (
 	defaultPrivDir   = "/dev/disk/csi-scaleio"
 )
 
-var (
-	// SupportedVersions is a list of supported CSI versions.
-	SupportedVersions = []*csi.Version{
-		&csi.Version{
-			Major: 0,
-			Minor: 1,
-			Patch: 0,
-		},
-	}
-)
-
 // Service is the CSI Mock service provider.
 type Service interface {
 	csi.ControllerServer
 	csi.IdentityServer
 	csi.NodeServer
 	gocsi.IdempotencyProvider
+	BeforeServe(context.Context, *csp.StoragePlugin, net.Listener) error
 }
 
 type Opts struct {
@@ -106,71 +68,88 @@ type service struct {
 }
 
 // New returns a new Service.
-func New(
-	opts Opts,
-	getEnv func(string) string) Service {
+func New() Service {
+	return &service{
+		sdcMap:  map[string]string{},
+		spCache: map[string]string{},
+	}
+}
 
-	// Environment variables have precedence over all others
-	if ep := getEnv(EnvEndpoint); ep != "" {
+func (s *service) BeforeServe(
+	ctx context.Context, sp *csp.StoragePlugin, lis net.Listener) error {
+
+	defer func() {
+		fields := map[string]interface{}{
+			"endpoint":       s.opts.Endpoint,
+			"user":           s.opts.User,
+			"password":       "",
+			"systemname":     s.opts.SystemName,
+			"sdcGUID":        s.opts.SdcGUID,
+			"insecure":       s.opts.Insecure,
+			"thickprovision": s.opts.Thick,
+			"privatedir":     s.privDir,
+		}
+
+		if s.opts.Password != "" {
+			fields["password"] = "******"
+		}
+
+		log.WithFields(fields).Infof("configured %s", Name)
+	}()
+
+	opts := Opts{}
+
+	if ep, ok := gocsi.LookupEnv(ctx, EnvEndpoint); ok {
 		opts.Endpoint = ep
 	}
-	if user := getEnv(EnvUser); user != "" {
+	if user, ok := gocsi.LookupEnv(ctx, EnvUser); ok {
 		opts.User = user
 	}
-	if pw := getEnv(EnvPassword); pw != "" {
+	if opts.User == "" {
+		opts.User = "admin"
+	}
+	if pw, ok := gocsi.LookupEnv(ctx, EnvPassword); ok {
 		opts.Password = pw
 	}
-	if name := getEnv(EnvSystemName); name != "" {
+	if name, ok := gocsi.LookupEnv(ctx, EnvSystemName); ok {
 		opts.SystemName = name
 	}
-	if guid := getEnv(EnvSDCGUID); guid != "" {
+	if opts.SystemName == "" {
+		opts.SystemName = "default"
+	}
+	if guid, ok := gocsi.LookupEnv(ctx, EnvSDCGUID); ok {
 		opts.SdcGUID = guid
+	}
+	var privDir string
+	if pd, ok := gocsi.LookupEnv(ctx, csp.EnvVarPrivateMountDir); ok {
+		privDir = pd
+	}
+	if privDir == "" {
+		privDir = defaultPrivDir
 	}
 
 	// pb parses an environment variable into a boolean value. If an error
 	// is encountered, default is set to false, and error is logged
 	pb := func(n string) bool {
-		v := getEnv(n)
-		b, err := strconv.ParseBool(v)
-		if err != nil {
-			log.WithField(n, v).Debug("invalid boolean value. defaulting to false")
-			return false
+		if v, ok := gocsi.LookupEnv(ctx, n); ok {
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				log.WithField(n, v).Debug(
+					"invalid boolean value. defaulting to false")
+				return false
+			}
+			return b
 		}
-		return b
+		return false
 	}
 
 	opts.Insecure = pb(EnvInsecure)
 	opts.Thick = pb(EnvThick)
 
-	privDir := getEnv(EnvPrivateDir)
-	if privDir == "" {
-		privDir = defaultPrivDir
-	}
+	s.opts = opts
+	s.privDir = privDir
 
-	fields := map[string]interface{}{
-		"endpoint":         opts.Endpoint,
-		"user":             opts.User,
-		"password":         "",
-		"systemname":       opts.SystemName,
-		"sdcGUID":          opts.SdcGUID,
-		"insecure":         opts.Insecure,
-		"thickprovision":   opts.Thick,
-		"privatedirectory": privDir,
-	}
-
-	if opts.Password != "" {
-		fields["password"] = "******"
-	}
-
-	log.WithFields(fields).Info("configured ScaleIO parameters")
-
-	s := &service{
-		opts:    opts,
-		sdcMap:  map[string]string{},
-		spCache: map[string]string{},
-		privDir: privDir,
-	}
-	return s
+	return nil
 }
 
 // getVolProvisionType returns a string indicating thin or thick provisioning

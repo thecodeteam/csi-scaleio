@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/thecodeteam/csi-scaleio/service"
+	"github.com/thecodeteam/gocsi"
 )
 
 func TestControllerGetCaps(t *testing.T) {
@@ -28,7 +29,7 @@ func TestControllerGetCaps(t *testing.T) {
 
 	resp, err := client.ControllerGetCapabilities(ctx,
 		&csi.ControllerGetCapabilitiesRequest{
-			Version: service.SupportedVersions[0],
+			Version: &gocsi.ParseVersions(service.SupportedVersions)[0],
 		})
 
 	assert.NoError(t, err)

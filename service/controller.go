@@ -217,10 +217,7 @@ func (s *service) DeleteVolume(
 	vol, err := s.getVolByID(id)
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
-			// Since not found is actualy a successful delete, we
-			// need to return a valid response
-			return nil, status.Error(codes.NotFound,
-				"volume not found")
+			return nil, gocsi.ErrVolumeNotFound(id)
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status before deletion: %s",
@@ -264,8 +261,7 @@ func (s *service) ControllerPublishVolume(
 	vol, err := s.getVolByID(volID)
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
-			return nil, status.Error(codes.NotFound,
-				"volume not found")
+			return nil, gocsi.ErrVolumeNotFound(volID)
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status before controller publish: %s",
@@ -371,8 +367,7 @@ func (s *service) ControllerUnpublishVolume(
 	vol, err := s.getVolByID(volID)
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
-			return nil, status.Error(codes.NotFound,
-				"volume not found")
+			return nil, gocsi.ErrVolumeNotFound(volID)
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status before controller unpublish: %s",
@@ -429,11 +424,11 @@ func (s *service) ValidateVolumeCapabilities(
 			"Controller Service has not been probed")
 	}
 
-	vol, err := s.getVolByID(req.GetVolumeId())
+	volID := req.GetVolumeId()
+	vol, err := s.getVolByID(volID)
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
-			return nil, status.Error(codes.NotFound,
-				"volume not found")
+			return nil, gocsi.ErrVolumeNotFound(volID)
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status for capabilities: %s",

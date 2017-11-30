@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/thecodeteam/csi-scaleio/service"
+	"github.com/thecodeteam/gocsi"
 )
 
 func TestPluginInfo(t *testing.T) {
@@ -21,7 +22,7 @@ func TestPluginInfo(t *testing.T) {
 
 	info, err := client.GetPluginInfo(ctx,
 		&csi.GetPluginInfoRequest{
-			Version: service.SupportedVersions[0],
+			Version: &gocsi.ParseVersions(service.SupportedVersions)[0],
 		})
 
 	assert.NoError(t, err)

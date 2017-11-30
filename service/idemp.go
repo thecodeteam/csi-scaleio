@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/thecodeteam/gocsi"
 	"github.com/thecodeteam/gofsutil"
 )
 
@@ -85,8 +86,7 @@ func (s *service) IsControllerPublished(
 	vol, err := s.getVolByID(id)
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
-			return nil, status.Error(codes.NotFound,
-				"volume not found")
+			return nil, gocsi.ErrVolumeNotFound(id)
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status: %s",
