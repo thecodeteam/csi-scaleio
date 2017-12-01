@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	log "github.com/sirupsen/logrus"
@@ -14,14 +15,13 @@ import (
 	"github.com/thecodeteam/gocsi/csp"
 	sio "github.com/thecodeteam/goscaleio"
 	siotypes "github.com/thecodeteam/goscaleio/types/v1"
+
+	"github.com/thecodeteam/csi-scaleio/core"
 )
 
 const (
 	// Name is the name of the CSI plug-in.
 	Name = "com.thecodeteam.scaleio"
-
-	// VendorVersion is the version returned by GetPluginInfo.
-	VendorVersion = "0.1.0"
 
 	// SupportedVersions is a list of supported CSI versions.
 	SupportedVersions = "0.1.0"
@@ -34,6 +34,14 @@ const (
 	thickProvisioned = "ThickProvisioned"
 	defaultPrivDir   = "/dev/disk/csi-scaleio"
 )
+
+// Manifest is the SP's manifest.
+var Manifest = map[string]string{
+	"url":    "https://github.com/thecodeteam/csi-scaleio",
+	"semver": core.SemVer,
+	"commit": core.CommitSha32,
+	"formed": core.CommitTime.Format(time.RFC1123),
+}
 
 // Service is the CSI Mock service provider.
 type Service interface {

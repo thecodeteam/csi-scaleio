@@ -10,9 +10,20 @@ as a Golang plug-in in order to extend the functionality of other programs.
 ## Installation
 CSI-ScaleIO can be installed with Go and the following command:
 
-`$go get github.com/thecodeteam/csi-scaleio`
+`$ go get github.com/thecodeteam/csi-scaleio`
 
 The resulting binary will be installed to `$GOPATH/bin/csi-scaleio`.
+
+If you want to build `csi-scaleio` with accurate version information, you'll
+need to run the `go generate` command and build again:
+
+```bash
+$ go get github.com/thecodeteam/csi-scaleio
+$ cd $GOPATH/src/github.com/thecodeteam/csi-scaleio
+$ go generate && go install
+```
+
+The binary will once again be installed to `$GOPATH/bin/csi-scaleio`.
 
 ## Starting the Plug-in
 Before starting the plugin please set the environment variable

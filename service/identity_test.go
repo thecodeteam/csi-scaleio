@@ -7,6 +7,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/thecodeteam/csi-scaleio/core"
 	"github.com/thecodeteam/csi-scaleio/service"
 	"github.com/thecodeteam/gocsi"
 )
@@ -27,7 +28,7 @@ func TestPluginInfo(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, info.GetName(), service.Name)
-	assert.Equal(t, info.GetVendorVersion(), service.VendorVersion)
+	assert.Equal(t, info.GetVendorVersion(), core.SemVer)
 }
 
 func TestGetSupportedVersions(t *testing.T) {

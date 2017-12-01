@@ -6,6 +6,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+
+	"github.com/thecodeteam/csi-scaleio/core"
 )
 
 func (s *service) GetSupportedVersions(
@@ -24,6 +26,7 @@ func (s *service) GetPluginInfo(
 
 	return &csi.GetPluginInfoResponse{
 		Name:          Name,
-		VendorVersion: VendorVersion,
+		VendorVersion: core.SemVer,
+		Manifest:      Manifest,
 	}, nil
 }
