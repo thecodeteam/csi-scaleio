@@ -7,11 +7,11 @@
 
 [[constraint]]
   name = "github.com/thecodeteam/gocsi"
-  branch = "master"
+  version = "0.2.4"
 
 [[constraint]]
-  name = "github.com/thecodeteam/goioc"
-  version = "0.2.0"
+  name = "github.com/thecodeteam/gofsutil"
+  version = "0.1.0"
 
 [[constraint]]
   name = "github.com/thecodeteam/goscaleio"
@@ -27,8 +27,4 @@
 
 [[constraint]]
   name = "github.com/container-storage-interface/spec"
-  branch = "master"
-
-[[constraint]]
-  name = "github.com/thecodeteam/gofsutil"
   branch = "master"

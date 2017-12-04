@@ -38,10 +38,10 @@
   version = "v1.1.4"
 
 [[projects]]
-  branch = "master"
   name = "github.com/thecodeteam/gocsi"
   packages = [".","csp"]
-  revision = "3c9764863d9a27c639b98b114e334b1e0f8a93c9"
+  revision = "c3bfc4752861d5e369fbab19049779c8f4185076"
+  version = "v0.2.4"
 
 [[projects]]
   name = "github.com/thecodeteam/gofsutil"
@@ -94,6 +94,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7ce93578aa91e44a6f794b70376c4c25b64289c4a4cfd79ac59e67d8aa237a95"
+  inputs-digest = "45e635c93401e92648b17496bfd354675e17c9617c441e9ebf0d223a9d6da6b3"
   solver-name = "gps-cdcl"
   solver-version = 1
