@@ -53,7 +53,7 @@
   branch = "master"
   name = "github.com/thecodeteam/goscaleio"
   packages = [".","api","types/v1"]
-  revision = "78028763a6745e5a3e3bf33d8dd538789538d1f8"
+  revision = "30be8284b32e1a53e2ac473e95275b24e6d583de"
 
 [[projects]]
   branch = "master"
