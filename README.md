@@ -78,6 +78,25 @@ $ ./csc -v 0.1.0 -e csi.sock identity plugin-info
 "url"="https://github.com/thecodeteam/csi-scaleio"
 ```
 
+### Parameters
+When using the plugin, some commands accept additional parameters, some of which
+may be required for the command to work, or may change the behavior of the
+command. Those parameters are listed here.
+
+* `CreateVolume`: `storagepool` The name of a storage pool *must* be passed
+  in the `CreateVolume` command
+* `GetCapacity`: `storagepool` *may* be passed in `GetCapacity` command. If it
+  is, the returned capacity is the available capacity for creation within the
+  given storage pool. Otherwise, it's the capacity for creation within the
+  storage cluster.
+
+Passing parameters with `csc` is demonstrated in this `CreateVolume` command:
+
+```bash
+$ ./csc -v 0.1.0 c create --cap 1,mount,xfs --params storagepool=pd1pool1 myvol
+"6757e7d300000000"
+```
+
 ## Configuration
 The CSI-ScaleIO SP is built using the GoCSI CSP package. Please
 see its
