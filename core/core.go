@@ -6,7 +6,7 @@ import "time"
 
 var (
 	// SemVer is the semantic version.
-	SemVer string
+	SemVer = "unknown"
 
 	// CommitSha7 is the short version of the commit hash from which
 	// this program was built.
