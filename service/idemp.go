@@ -9,7 +9,6 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/thecodeteam/gocsi"
-	"github.com/thecodeteam/gofsutil"
 )
 
 var (
@@ -127,26 +126,17 @@ func (s *service) IsNodePublished(
 			id, err.Error())
 	}
 
-	mnts, err := gofsutil.GetMounts(ctx)
+	mnts, err := getDevMounts(sysDevice)
 	if err != nil {
 		return false, err
 	}
 
-	devMnts := make([]gofsutil.Info, 0)
-
-	for _, m := range mnts {
-		if m.Device == sysDevice.RealDev || (m.Device == "devtmpfs" && m.Source == sysDevice.RealDev) {
-			devMnts = append(devMnts, m)
-		}
-	}
-
-	if len(devMnts) > 0 {
-		for _, m := range devMnts {
+	if len(mnts) > 0 {
+		for _, m := range mnts {
 			if m.Path == targetPath {
 				return true, nil
 			}
 		}
 	}
-
 	return false, nil
 }

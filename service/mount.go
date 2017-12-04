@@ -143,7 +143,7 @@ func publishVolume(
 	}
 
 	// Path to mount device to
-	privTgt := getPrivateMountPoint(privDir, sysDevice)
+	privTgt := getPrivateMountPoint(privDir, id)
 
 	f := log.Fields{
 		"id":           id,
@@ -156,21 +156,7 @@ func publishVolume(
 	ctx := context.Background()
 
 	// Check if device is already mounted
-	var devMnts []gofsutil.Info
-	if isBlock {
-		var tmpMnts []gofsutil.Info
-		tmpMnts, err = gofsutil.GetMounts(ctx)
-		devMnts = make([]gofsutil.Info, 0)
-		if err == nil {
-			for _, m := range tmpMnts {
-				if m.Device == "devtmpfs" && m.Source == sysDevice.RealDev {
-					devMnts = append(devMnts, m)
-				}
-			}
-		}
-	} else {
-		devMnts, err = gofsutil.GetDevMounts(ctx, sysDevice.RealDev)
-	}
+	devMnts, err := getDevMounts(sysDevice)
 	if err != nil {
 		return status.Errorf(codes.Internal,
 			"could not reliably determine existing mount status: %s",
@@ -331,8 +317,8 @@ func handlePrivFSMount(
 	return status.Error(codes.Internal, "Invalid access mode")
 }
 
-func getPrivateMountPoint(privDir string, dev *Device) string {
-	return filepath.Join(privDir, dev.Name)
+func getPrivateMountPoint(privDir string, name string) string {
+	return filepath.Join(privDir, name)
 }
 
 func contains(list []string, item string) bool {
@@ -409,7 +395,7 @@ func unpublishVolume(
 	}
 
 	// Path to mount device to
-	privTgt := getPrivateMountPoint(privDir, sysDevice)
+	privTgt := getPrivateMountPoint(privDir, id)
 
 	mnts, err := gofsutil.GetMounts(ctx)
 	if err != nil {
@@ -452,20 +438,13 @@ func unmountPrivMount(
 	dev *Device,
 	target string) error {
 
-	mnts, err := gofsutil.GetMounts(ctx)
+	mnts, err := getDevMounts(dev)
 	if err != nil {
 		return err
 	}
 
-	devMnts := make([]gofsutil.Info, 0)
-	for _, m := range mnts {
-		if (m.Device == "devtmpfs" && m.Source == dev.RealDev) || m.Device == dev.RealDev {
-			devMnts = append(devMnts, m)
-		}
-	}
-
 	// remove private mount if we can
-	if len(devMnts) == 1 && devMnts[0].Path == target {
+	if len(mnts) == 1 && mnts[0].Path == target {
 		if err := gofsutil.Unmount(ctx, target); err != nil {
 			return err
 		}
@@ -474,4 +453,22 @@ func unmountPrivMount(
 		os.Remove(target)
 	}
 	return nil
+}
+
+func getDevMounts(
+	sysDevice *Device) ([]gofsutil.Info, error) {
+
+	ctx := context.Background()
+	devMnts := make([]gofsutil.Info, 0)
+
+	mnts, err := gofsutil.GetMounts(ctx)
+	if err != nil {
+		return devMnts, err
+	}
+	for _, m := range mnts {
+		if m.Device == sysDevice.RealDev || (m.Device == "devtmpfs" && m.Source == sysDevice.RealDev) {
+			devMnts = append(devMnts, m)
+		}
+	}
+	return devMnts, nil
 }

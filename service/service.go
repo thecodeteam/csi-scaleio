@@ -122,9 +122,6 @@ func (s *service) BeforeServe(
 	if name, ok := gocsi.LookupEnv(ctx, EnvSystemName); ok {
 		opts.SystemName = name
 	}
-	if opts.SystemName == "" {
-		opts.SystemName = "default"
-	}
 	if guid, ok := gocsi.LookupEnv(ctx, EnvSDCGUID); ok {
 		opts.SdcGUID = guid
 	}

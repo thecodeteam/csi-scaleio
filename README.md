@@ -1,11 +1,20 @@
-# CSI-ScaleIO [![Build Status](http://travis-ci.org/thecodeteam/csi-scaleio.svg?branch=master)]
+# CSI plugin for ScaleIO [![Build Status](http://travis-ci.org/thecodeteam/csi-scaleio.svg?branch=master)]
 
+## Description
 CSI-ScaleIO is a Container Storage Interface ([CSI](https://github.com/container-storage-interface/spec))
 plugin that provides ScaleIO support.
 
 This project may be compiled as a stand-alone binary using Golang that, when
 run, provides a valid CSI endpoint. This project can also be vendored or built
 as a Golang plug-in in order to extend the functionality of other programs.
+
+## Runtime Dependencies
+The Node portion of the plugin can be run on any node that is configured as a
+ScaleIO SDC. This means that the `scini` kernel module must be loaded. Also,
+if the `X_CSI_SCALEIO_SDCGUID` environment variable is not set, the plugin will
+try to query the SDC GUID by executing the binary
+`/opt/emc/scaleio/sdc/bin/drv_cfg`. If that binary is not present, the Node
+Service cannot be run.
 
 ## Installation
 CSI-ScaleIO can be installed with Go and the following command:
@@ -25,7 +34,7 @@ $ go generate && go install
 
 The binary will once again be installed to `$GOPATH/bin/csi-scaleio`.
 
-## Starting the Plug-in
+## Start plugin
 Before starting the plugin please set the environment variable
 `CSI_ENDPOINT` to a valid Go network address such as `csi.sock`:
 
@@ -41,15 +50,32 @@ INFO[0000] serving                                       endpoint="unix:///csi.s
 The server can be shutdown by using `Ctrl-C` or sending the process
 any of the standard exit signals.
 
-## Using the Plug-in
+## Using plugin
 The CSI specification uses the gRPC protocol for plug-in communication.
-The easiest way to interact with a CSI plug-in is via the Container
+The easiest way to interact with a CSI plugin is via the Container
 Storage Client (`csc`) program provided via the
 [GoCSI](https://github.com/thecodeteam/gocsi) project:
 
 ```bash
 $ go get github.com/thecodeteam/gocsi
 $ go install github.com/thecodeteam/gocsi/csc
+```
+
+Then, set have `csc` use the same `CSI_ENDPOINT`, and you can issue commands
+to the plugin. Some examples...
+
+Get the plugin's supported versions and plugin info:
+
+```bash
+$ ./csc -e csi.sock identity supported-versions
+0.1.0
+
+$ ./csc -v 0.1.0 -e csi.sock identity plugin-info
+"com.thecodeteam.scaleio"	"0.0.1+1"
+"commit"="cd9c538b596db926a3a747c6c219a2ace8f1890b"
+"formed"="Fri, 01 Dec 2017 08:33:28 PST"
+"semver"="0.0.1+1"
+"url"="https://github.com/thecodeteam/csi-scaleio"
 ```
 
 ## Configuration
@@ -81,6 +107,49 @@ to ScaleIO, their default values, and whether they are required for operation:
 | `X_CSI_SCALEIO_USER`     | Username for authenticating to Gateway | "admin" | `false` |
 | `X_CSI_SCALEIO_PASSWORD` | Password of Gateway user | "" | `true` |
 | `X_CSI_SCALEIO_INSECURE` | The ScaleIO Gateway's certificate chain and host name should not be verified | `false` | `false` |
-| `X_CSI_SCALEIO_SYSTEMNAME` | The name of the ScaleIO cluster | "default" | `false` |
+| `X_CSI_SCALEIO_SYSTEMNAME` | The name of the ScaleIO cluster | "" | `true` |
 | `X_CSI_SCALEIO_SDCGUID` | The GUID of the SDC. This is only used by the Node Service, and removes a need for calling an external binary to retrieve the GUID | "" | `false` |
 | `X_CSI_SCALEIO_THICKPROVISIONING` | Whether to use thick provisioning when creating new volumes | `false` | `false` |
+
+## Capable operational modes
+The CSI spec defines a set of AccessModes that a volume can have. CSI-ScaleIO
+supports the following modes for volumes that will be mounted as a filesystem:
+
+```
+// Can only be published once as read/write on a single node,
+// at any given time.
+SINGLE_NODE_WRITER = 1;
+
+// Can only be published once as readonly on a single node,
+// at any given time.
+SINGLE_NODE_READER_ONLY = 2;
+
+// Can be published as readonly at multiple nodes simultaneously.
+MULTI_NODE_READER_ONLY = 3;
+```
+
+This means that volumes can be mounted to either single node at a time, with
+read-write or read-only permission, or can be mounted on multiple nodes, but all
+must be read-only.
+
+For volumes that are used as block devices, only the following are supported:
+
+```
+// Can only be published once as read/write on a single node, at
+// any given time.
+SINGLE_NODE_WRITER = 1;
+
+// Can be published as read/write at multiple nodes
+// simultaneously.
+MULTI_NODE_MULTI_WRITER = 5;
+```
+
+This means that giving a workload read-only access to a block device is not
+supported.
+
+In general, volumes should be formatted with xfs or ext4.
+
+## Support
+For any questions or concerns please file an issue with the
+[csi-scaleio](https://github.com/thecodeteam/csi-scaleio/issues) project or join
+the Slack channel #project-rexray at codecommunity.slack.com.
