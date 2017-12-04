@@ -19,9 +19,8 @@ func (s *service) GetVolumeID(
 	ctx xctx.Context,
 	name string) (string, error) {
 
-	if s.adminClient == nil {
-		return "", status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return "", err
 	}
 
 	id, err := s.adminClient.FindVolumeID(name)
@@ -40,9 +39,8 @@ func (s *service) GetVolumeInfo(
 	ctx xctx.Context,
 	id, name string) (*csi.VolumeInfo, error) {
 
-	if s.adminClient == nil {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return nil, err
 	}
 
 	if id == "" {
@@ -77,9 +75,8 @@ func (s *service) IsControllerPublished(
 	ctx xctx.Context,
 	id, nodeID string) (map[string]string, error) {
 
-	if s.adminClient == nil {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return nil, err
 	}
 
 	vol, err := s.getVolByID(id)

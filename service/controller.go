@@ -61,9 +61,8 @@ func (s *service) CreateVolume(
 	req *csi.CreateVolumeRequest) (
 	*csi.CreateVolumeResponse, error) {
 
-	if s.adminClient == nil {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return nil, err
 	}
 
 	cr := req.GetCapacityRange()
@@ -207,9 +206,8 @@ func (s *service) DeleteVolume(
 	req *csi.DeleteVolumeRequest) (
 	*csi.DeleteVolumeResponse, error) {
 
-	if s.adminClient == nil {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return nil, err
 	}
 
 	id := req.GetVolumeId()
@@ -248,9 +246,8 @@ func (s *service) ControllerPublishVolume(
 	req *csi.ControllerPublishVolumeRequest) (
 	*csi.ControllerPublishVolumeResponse, error) {
 
-	if s.adminClient == nil {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return nil, err
 	}
 
 	volID := req.GetVolumeId()
@@ -354,9 +351,8 @@ func (s *service) ControllerUnpublishVolume(
 	req *csi.ControllerUnpublishVolumeRequest) (
 	*csi.ControllerUnpublishVolumeResponse, error) {
 
-	if s.adminClient == nil {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return nil, err
 	}
 
 	volID := req.GetVolumeId()
@@ -419,9 +415,8 @@ func (s *service) ValidateVolumeCapabilities(
 	req *csi.ValidateVolumeCapabilitiesRequest) (
 	*csi.ValidateVolumeCapabilitiesResponse, error) {
 
-	if s.adminClient == nil {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return nil, err
 	}
 
 	volID := req.GetVolumeId()
@@ -507,9 +502,8 @@ func (s *service) ListVolumes(
 	req *csi.ListVolumesRequest) (
 	*csi.ListVolumesResponse, error) {
 
-	if s.adminClient == nil {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return nil, err
 	}
 
 	var (
@@ -632,9 +626,8 @@ func (s *service) GetCapacity(
 	req *csi.GetCapacityRequest) (
 	*csi.GetCapacityResponse, error) {
 
-	if s.adminClient == nil {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Controller Service has not been probed")
+	if err := s.requireProbe(ctx); err != nil {
+		return nil, err
 	}
 
 	var statsFunc func() (*siotypes.Statistics, error)
@@ -764,4 +757,19 @@ func (s *service) ControllerProbe(
 	}
 
 	return emptyProbeResp, nil
+}
+
+func (s *service) requireProbe(ctx context.Context) error {
+	if s.adminClient == nil {
+		if !s.opts.AutoProbe {
+			return status.Error(codes.FailedPrecondition,
+				"Controller Service has not been probed")
+		}
+		log.Debug("probing controller service automatically")
+		if _, err := s.ControllerProbe(ctx, &csi.ControllerProbeRequest{}); err != nil {
+			return status.Errorf(codes.FailedPrecondition,
+				"failed to probe/init plugin: %s", err.Error())
+		}
+	}
+	return nil
 }

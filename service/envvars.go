@@ -30,4 +30,10 @@ const (
 	// EnvThick is the name of the enviroment variable used to specify
 	// that thick provisioning should be used when creating volumes
 	EnvThick = "X_CSI_SCALEIO_THICKPROVISIONING"
+
+	// EnvAutoProbe is the name of the environment variable used to specify
+	// that the controller service should automatically probe itself if it
+	// receives incoming requests before having been probed, in direct
+	// violation of the CSI spec
+	EnvAutoProbe = "X_CSI_SCALEIO_AUTOPROBE"
 )

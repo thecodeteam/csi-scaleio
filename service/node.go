@@ -91,7 +91,8 @@ func (s *service) GetNodeID(
 
 	if s.opts.SdcGUID == "" {
 		return nil, status.Error(codes.FailedPrecondition,
-			"Unable to get Node ID. Either it is not configured, or Node Service has been probed")
+			"Unable to get Node ID. Either it is not configured, "+
+				"or Node Service has not been probed")
 	}
 	return &csi.GetNodeIDResponse{
 		NodeId: s.opts.SdcGUID,

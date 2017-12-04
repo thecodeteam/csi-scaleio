@@ -60,6 +60,7 @@ type Opts struct {
 	SdcGUID    string
 	Insecure   bool
 	Thick      bool
+	AutoProbe  bool
 }
 
 type service struct {
@@ -96,6 +97,7 @@ func (s *service) BeforeServe(
 			"insecure":       s.opts.Insecure,
 			"thickprovision": s.opts.Thick,
 			"privatedir":     s.privDir,
+			"autoprobe":      s.opts.AutoProbe,
 		}
 
 		if s.opts.Password != "" {
@@ -150,6 +152,7 @@ func (s *service) BeforeServe(
 
 	opts.Insecure = pb(EnvInsecure)
 	opts.Thick = pb(EnvThick)
+	opts.AutoProbe = pb(EnvAutoProbe)
 
 	s.opts = opts
 	s.privDir = privDir
