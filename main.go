@@ -61,10 +61,4 @@ const usage = `    X_CSI_SCALEIO_ENDPOINT
         Specifies whether thick provisiong should be used when creating volumes.
 
         The default value is false.
-
-    X_CSI_SCALEIO_PRIVDIR
-        Specifies the path where private mounts occur before being bind-mounted
-        to target paths in NodePublish reqeuests.
-
-        The default value is /dev/disk/csi-scaleio.
 `
