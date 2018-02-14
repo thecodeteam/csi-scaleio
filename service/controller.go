@@ -13,8 +13,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/thecodeteam/goscaleio"
 	siotypes "github.com/thecodeteam/goscaleio/types/v1"
-
-	"github.com/thecodeteam/gocsi"
 )
 
 const (
@@ -84,8 +82,11 @@ func (s *service) CreateVolume(
 
 	name := req.GetName()
 	if name == "" {
-		return nil, gocsi.ErrVolumeNameRequired
+		return nil, status.Error(codes.InvalidArgument,
+			"'name' cannot be empty")
 	}
+
+	// TODO handle Access mode in volume capability
 
 	fields := map[string]interface{}{
 		"name":        name,
@@ -113,7 +114,7 @@ func (s *service) CreateVolume(
 	var id string
 	if createResp == nil {
 		// volume already exists, look it up by name
-		id, err = s.GetVolumeID(ctx, name)
+		id, err = s.adminClient.FindVolumeID(name)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -215,7 +216,8 @@ func (s *service) DeleteVolume(
 	vol, err := s.getVolByID(id)
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
-			return nil, gocsi.ErrVolumeNotFound(id)
+			log.Debug("volume already deleted")
+			return emptyDelResp, nil
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status before deletion: %s",
@@ -252,13 +254,15 @@ func (s *service) ControllerPublishVolume(
 
 	volID := req.GetVolumeId()
 	if volID == "" {
-		return nil, gocsi.ErrVolumeIDRequired
+		return nil, status.Error(codes.InvalidArgument,
+			"volumeID is required")
 	}
 
 	vol, err := s.getVolByID(volID)
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
-			return nil, gocsi.ErrVolumeNotFound(volID)
+			return nil, status.Error(codes.NotFound,
+				"volume not found")
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status before controller publish: %s",
@@ -267,7 +271,8 @@ func (s *service) ControllerPublishVolume(
 
 	nodeID := req.GetNodeId()
 	if nodeID == "" {
-		return nil, gocsi.ErrNodeIDRequired
+		return nil, status.Error(codes.InvalidArgument,
+			"node ID is required")
 	}
 
 	sdcID, err := s.getSDCID(nodeID)
@@ -277,12 +282,14 @@ func (s *service) ControllerPublishVolume(
 
 	vc := req.GetVolumeCapability()
 	if vc == nil {
-		return nil, gocsi.ErrVolumeCapabilityRequired
+		return nil, status.Error(codes.InvalidArgument,
+			"volume capability is required")
 	}
 
 	am := vc.GetAccessMode()
 	if am == nil {
-		return nil, gocsi.ErrAccessModeRequired
+		return nil, status.Error(codes.InvalidArgument,
+			"access mode is required")
 	}
 
 	if am.Mode == csi.VolumeCapability_AccessMode_UNKNOWN {
@@ -296,35 +303,30 @@ func (s *service) ControllerPublishVolume(
 
 		for _, sdc := range vol.MappedSdcInfo {
 			if sdc.SdcID == sdcID {
+				// TODO check if published volume is compatible with this request
 				// volume already mapped
 				log.Debug("volume already mapped")
 				return emptyCtrlPubResp, nil
 			}
 		}
 
+		// If volume has SINGLE_NODE cap, go no farther
+		switch am.Mode {
+		case csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+			csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY:
+			return nil, status.Errorf(codes.FailedPrecondition,
+				"volume already published to SDC id: %s", vol.MappedSdcInfo[0].SdcID)
+		}
+
+		// All remaining cases are MULTI_NODE, make sure volume has
+		// multi-map enabled
 		if !vol.MappingToAllSdcsEnabled {
-			return nil, status.Error(codes.AlreadyExists,
+			return nil, status.Error(codes.FailedPrecondition,
 				errNoMultiMap)
 		}
 
-		switch am.Mode {
-		case csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER:
-			fallthrough
-		case csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY:
-			return nil, status.Errorf(codes.AlreadyExists,
-				"volume already published to SDC id: %s", vol.MappedSdcInfo[0].SdcID)
-
-		case csi.VolumeCapability_AccessMode_MULTI_NODE_SINGLE_WRITER:
-			fallthrough
-		case csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER:
-			return nil, status.Error(codes.InvalidArgument,
-				errNoMultiNodeWriter)
-		}
-
-		if !isBlock {
-			// multi-mapping Mount volumes is never allowed
-			return nil, status.Error(codes.AlreadyExists,
-				errUnknownAccessMode)
+		if err := validateAccessType(am, isBlock); err != nil {
+			return nil, err
 		}
 	}
 
@@ -346,6 +348,32 @@ func (s *service) ControllerPublishVolume(
 	return emptyCtrlPubResp, nil
 }
 
+func validateAccessType(
+	am *csi.VolumeCapability_AccessMode,
+	isBlock bool) error {
+
+	if isBlock {
+		switch am.Mode {
+		case csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+			csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER:
+			return nil
+		default:
+			return status.Errorf(codes.InvalidArgument,
+				"Access mode: %v not compatible with access type", am.Mode)
+		}
+	} else {
+		switch am.Mode {
+		case csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+			csi.VolumeCapability_AccessMode_SINGLE_NODE_READER_ONLY,
+			csi.VolumeCapability_AccessMode_MULTI_NODE_READER_ONLY:
+			return nil
+		default:
+			return status.Errorf(codes.InvalidArgument,
+				"Access mode: %v not compatible with access type", am.Mode)
+		}
+	}
+}
+
 func (s *service) ControllerUnpublishVolume(
 	ctx context.Context,
 	req *csi.ControllerUnpublishVolumeRequest) (
@@ -357,13 +385,15 @@ func (s *service) ControllerUnpublishVolume(
 
 	volID := req.GetVolumeId()
 	if volID == "" {
-		return nil, gocsi.ErrVolumeIDRequired
+		return nil, status.Error(codes.InvalidArgument,
+			"volumeID is required")
 	}
 
 	vol, err := s.getVolByID(volID)
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
-			return nil, gocsi.ErrVolumeNotFound(volID)
+			return nil, status.Error(codes.NotFound,
+				"volume not found")
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status before controller unpublish: %s",
@@ -372,7 +402,8 @@ func (s *service) ControllerUnpublishVolume(
 
 	nodeID := req.GetNodeId()
 	if nodeID == "" {
-		return nil, gocsi.ErrNodeIDRequired
+		return nil, status.Error(codes.InvalidArgument,
+			"Node ID is required")
 	}
 
 	sdcID, err := s.getSDCID(nodeID)
@@ -390,6 +421,7 @@ func (s *service) ControllerUnpublishVolume(
 	}
 
 	if !mappedToNode {
+		log.Debug("volume already unpublished")
 		return emptyCtrlUnpubResp, nil
 	}
 
@@ -423,7 +455,8 @@ func (s *service) ValidateVolumeCapabilities(
 	vol, err := s.getVolByID(volID)
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
-			return nil, gocsi.ErrVolumeNotFound(volID)
+			return nil, status.Error(codes.NotFound,
+				"volume not found")
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status for capabilities: %s",
