@@ -2,10 +2,24 @@
 
 
 [[projects]]
-  branch = "master"
   name = "github.com/container-storage-interface/spec"
   packages = ["lib/go/csi"]
-  revision = "4ac2d13f89360f2da40d188473d77f2ec56b9d0d"
+  revision = "9e88e4bfabeca1b8e4810555815f112159292ada"
+  version = "v0.1.0"
+
+[[projects]]
+  name = "github.com/coreos/etcd"
+  packages = [
+    "auth/authpb",
+    "clientv3",
+    "clientv3/concurrency",
+    "etcdserver/api/v3rpc/rpctypes",
+    "etcdserver/etcdserverpb",
+    "mvcc/mvccpb",
+    "pkg/types"
+  ]
+  revision = "28f3f26c0e303392556035b694f75768d449d33d"
+  version = "v3.3.1"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -14,9 +28,25 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/gogo/protobuf"
+  packages = [
+    "gogoproto",
+    "proto",
+    "protoc-gen-gogo/descriptor"
+  ]
+  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/golang/protobuf"
-  packages = ["proto","ptypes","ptypes/any","ptypes/duration","ptypes/timestamp"]
+  packages = [
+    "proto",
+    "ptypes",
+    "ptypes/any",
+    "ptypes/duration",
+    "ptypes/timestamp"
+  ]
   revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
 
 [[projects]]
@@ -39,9 +69,19 @@
 
 [[projects]]
   name = "github.com/thecodeteam/gocsi"
-  packages = [".","csp"]
-  revision = "c3bfc4752861d5e369fbab19049779c8f4185076"
-  version = "v0.2.4"
+  packages = [
+    ".",
+    "context",
+    "middleware/logging",
+    "middleware/requestid",
+    "middleware/serialvolume",
+    "middleware/serialvolume/etcd",
+    "middleware/serialvolume/types",
+    "middleware/specvalidator",
+    "utils"
+  ]
+  revision = "908901d40a8676ecf5953e89019abd448aa237de"
+  version = "v0.3.1"
 
 [[projects]]
   name = "github.com/thecodeteam/gofsutil"
@@ -52,8 +92,18 @@
 [[projects]]
   branch = "master"
   name = "github.com/thecodeteam/goscaleio"
-  packages = [".","api","types/v1"]
+  packages = [
+    ".",
+    "api",
+    "types/v1"
+  ]
   revision = "30be8284b32e1a53e2ac473e95275b24e6d583de"
+
+[[projects]]
+  name = "github.com/thecodeteam/gosync"
+  packages = ["."]
+  revision = "94b0033d0b5fc254594c3174329c19356c2c4f63"
+  version = "v0.1.0"
 
 [[projects]]
   branch = "master"
@@ -64,19 +114,45 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
+  packages = [
+    "context",
+    "http2",
+    "http2/hpack",
+    "idna",
+    "internal/timeseries",
+    "lex/httplex",
+    "trace"
+  ]
   revision = "9dfe39835686865bff950a07b394c12a98ddc811"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix","windows"]
+  packages = [
+    "unix",
+    "windows"
+  ]
   revision = "bf42f188b9bc6f2cf5b8ee5a912ef1aedd0eba4c"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = ["collate","collate/build","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
+  packages = [
+    "collate",
+    "collate/build",
+    "internal/colltab",
+    "internal/gen",
+    "internal/tag",
+    "internal/triegen",
+    "internal/ucd",
+    "language",
+    "secure/bidirule",
+    "transform",
+    "unicode/bidi",
+    "unicode/cldr",
+    "unicode/norm",
+    "unicode/rangetable"
+  ]
   revision = "88f656faf3f37f690df1a32515b479415e1a6769"
 
 [[projects]]
@@ -87,13 +163,32 @@
 
 [[projects]]
   name = "google.golang.org/grpc"
-  packages = [".","balancer","codes","connectivity","credentials","grpclb/grpc_lb_v1/messages","grpclog","internal","keepalive","metadata","naming","peer","resolver","stats","status","tap","transport"]
+  packages = [
+    ".",
+    "balancer",
+    "codes",
+    "connectivity",
+    "credentials",
+    "grpclb/grpc_lb_v1/messages",
+    "grpclog",
+    "health/grpc_health_v1",
+    "internal",
+    "keepalive",
+    "metadata",
+    "naming",
+    "peer",
+    "resolver",
+    "stats",
+    "status",
+    "tap",
+    "transport"
+  ]
   revision = "401e0e00e4bb830a10496d64cd95e068c5bf50de"
   version = "v1.7.3"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "45e635c93401e92648b17496bfd354675e17c9617c441e9ebf0d223a9d6da6b3"
+  inputs-digest = "fb3139578d7ab899284f28f3d49aac354c6034f152b39e9921cb00228f642e9b"
   solver-name = "gps-cdcl"
   solver-version = 1

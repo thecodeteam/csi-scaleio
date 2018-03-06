@@ -12,7 +12,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	log "github.com/sirupsen/logrus"
 	"github.com/thecodeteam/gocsi"
-	"github.com/thecodeteam/gocsi/csp"
+	csictx "github.com/thecodeteam/gocsi/context"
 	sio "github.com/thecodeteam/goscaleio"
 	siotypes "github.com/thecodeteam/goscaleio/types/v1"
 
@@ -48,8 +48,7 @@ type Service interface {
 	csi.ControllerServer
 	csi.IdentityServer
 	csi.NodeServer
-	gocsi.IdempotencyProvider
-	BeforeServe(context.Context, *csp.StoragePlugin, net.Listener) error
+	BeforeServe(context.Context, *gocsi.StoragePlugin, net.Listener) error
 }
 
 type Opts struct {
@@ -85,7 +84,7 @@ func New() Service {
 }
 
 func (s *service) BeforeServe(
-	ctx context.Context, sp *csp.StoragePlugin, lis net.Listener) error {
+	ctx context.Context, sp *gocsi.StoragePlugin, lis net.Listener) error {
 
 	defer func() {
 		fields := map[string]interface{}{
@@ -109,36 +108,35 @@ func (s *service) BeforeServe(
 
 	opts := Opts{}
 
-	if ep, ok := gocsi.LookupEnv(ctx, EnvEndpoint); ok {
+	if ep, ok := csictx.LookupEnv(ctx, EnvEndpoint); ok {
 		opts.Endpoint = ep
 	}
-	if user, ok := gocsi.LookupEnv(ctx, EnvUser); ok {
+	if user, ok := csictx.LookupEnv(ctx, EnvUser); ok {
 		opts.User = user
 	}
 	if opts.User == "" {
 		opts.User = "admin"
 	}
-	if pw, ok := gocsi.LookupEnv(ctx, EnvPassword); ok {
+	if pw, ok := csictx.LookupEnv(ctx, EnvPassword); ok {
 		opts.Password = pw
 	}
-	if name, ok := gocsi.LookupEnv(ctx, EnvSystemName); ok {
+	if name, ok := csictx.LookupEnv(ctx, EnvSystemName); ok {
 		opts.SystemName = name
 	}
-	if guid, ok := gocsi.LookupEnv(ctx, EnvSDCGUID); ok {
+	if guid, ok := csictx.LookupEnv(ctx, EnvSDCGUID); ok {
 		opts.SdcGUID = guid
 	}
-	var privDir string
-	if pd, ok := gocsi.LookupEnv(ctx, csp.EnvVarPrivateMountDir); ok {
-		privDir = pd
+	if pd, ok := csictx.LookupEnv(ctx, gocsi.EnvVarPrivateMountDir); ok {
+		s.privDir = pd
 	}
-	if privDir == "" {
-		privDir = defaultPrivDir
+	if s.privDir == "" {
+		s.privDir = defaultPrivDir
 	}
 
 	// pb parses an environment variable into a boolean value. If an error
 	// is encountered, default is set to false, and error is logged
 	pb := func(n string) bool {
-		if v, ok := gocsi.LookupEnv(ctx, n); ok {
+		if v, ok := csictx.LookupEnv(ctx, n); ok {
 			b, err := strconv.ParseBool(v)
 			if err != nil {
 				log.WithField(n, v).Debug(
@@ -155,7 +153,6 @@ func (s *service) BeforeServe(
 	opts.AutoProbe = pb(EnvAutoProbe)
 
 	s.opts = opts
-	s.privDir = privDir
 
 	return nil
 }

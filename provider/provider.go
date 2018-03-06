@@ -1,51 +1,42 @@
 package provider
 
 import (
-	"github.com/thecodeteam/gocsi/csp"
+	"github.com/thecodeteam/gocsi"
 
 	"github.com/thecodeteam/csi-scaleio/service"
 )
 
 // New returns a new Mock Storage Plug-in Provider.
-func New() csp.StoragePluginProvider {
+func New() gocsi.StoragePluginProvider {
 	svc := service.New()
-	return &csp.StoragePlugin{
-		Controller:          svc,
-		Identity:            svc,
-		Node:                svc,
-		IdempotencyProvider: svc,
-		BeforeServe:         svc.BeforeServe,
+	return &gocsi.StoragePlugin{
+		Controller:  svc,
+		Identity:    svc,
+		Node:        svc,
+		BeforeServe: svc.BeforeServe,
 
 		EnvVars: []string{
-			// Enable idempotency. Please note that setting
-			// X_CSI_IDEMP=true does not by itself enable the idempotency
-			// interceptor. An IdempotencyProvider must be provided as
-			// well.
-			csp.EnvVarIdemp + "=true",
+			// Enable request validation
+			gocsi.EnvVarSpecReqValidation + "=true",
+
+			// Enable serial volume access
+			gocsi.EnvVarSerialVolAccess + "=true",
 
 			// Treat the following fields as required:
 			//    * ControllerPublishVolumeRequest.NodeId
 			//    * GetNodeIDResponse.NodeId
-			csp.EnvVarRequireNodeID + "=true",
+			gocsi.EnvVarRequireNodeID + "=true",
 
 			// Treat the following fields as required:
 			//    * ControllerPublishVolumeResponse.PublishVolumeInfo
 			//    * NodePublishVolumeRequest.PublishVolumeInfo
-			csp.EnvVarRequirePubVolInfo + "=false",
-
-			// Treat CreateVolume responses as successful
-			// when they have an associated error code of AlreadyExists.
-			csp.EnvVarCreateVolAlreadyExistsSuccess + "=true",
-
-			// Treat DeleteVolume responses as successful
-			// when they have an associated error code of NotFound.
-			csp.EnvVarDeleteVolNotFoundSuccess + "=true",
+			gocsi.EnvVarRequirePubVolInfo + "=false",
 
 			// Provide the list of versions supported by this SP. The
 			// specified versions will be:
 			//     * Returned by GetSupportedVersions
 			//     * Used to validate the Version field of incoming RPCs
-			csp.EnvVarSupportedVersions + "=" + service.SupportedVersions,
+			gocsi.EnvVarSupportedVersions + "=" + service.SupportedVersions,
 		},
 	}
 }

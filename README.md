@@ -61,7 +61,7 @@ $ go get github.com/thecodeteam/gocsi
 $ go install github.com/thecodeteam/gocsi/csc
 ```
 
-Then, set have `csc` use the same `CSI_ENDPOINT`, and you can issue commands
+Then, have `csc` use the same `CSI_ENDPOINT`, and you can issue commands
 to the plugin. Some examples...
 
 Get the plugin's supported versions and plugin info:
@@ -100,7 +100,7 @@ $ ./csc -v 0.1.0 c create --cap 1,mount,xfs --params storagepool=pd1pool1 myvol
 ## Configuration
 The CSI-ScaleIO SP is built using the GoCSI CSP package. Please
 see its
-[configuration section](https://github.com/thecodeteam/gocsi/tree/master/csp#configuration)
+[configuration section](https://github.com/thecodeteam/gocsi#configuration)
 for a complete list of the environment variables that may be used to
 configure this SP.
 
@@ -108,12 +108,10 @@ The following table is a list of this SP's default configuration values:
 
 | Name | Value |
 |------|---------|
-| `X_CSI_IDEMP` | `true` |
-| `X_CSI_IDEMP_REQUIRE_VOL` | `true` |
+| `X_CSI_SPEC_REQ_VALIDATION` | `true` |
+| `X_CSI_SERIAL_VOL_ACCESS` | `true` |
 | `X_CSI_REQUIRE_NODE_ID` | `true` |
 | `X_CSI_REQUIRE_PUB_VOL_INFO` | `false` |
-| `X_CSI_CREATE_VOL_ALREADY_EXISTS` | `true` |
-| `X_CSI_DELETE_VOL_NOT_FOUND` | `true` |
 | `X_CSI_SUPPORTED_VERSIONS` | `0.1.0` |
 | `X_CSI_PRIVATE_MOUNT_DIR` | `/dev/disk/csi-scaleio` |
 

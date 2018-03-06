@@ -8,7 +8,6 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	log "github.com/sirupsen/logrus"
-	"github.com/thecodeteam/gocsi"
 	"github.com/thecodeteam/gofsutil"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -65,19 +64,22 @@ func publishVolume(
 
 	target := req.GetTargetPath()
 	if target == "" {
-		return gocsi.ErrTargetPathRequired
+		return status.Error(codes.InvalidArgument,
+			"target path required")
 	}
 
 	ro := req.GetReadonly()
 
 	volCap := req.GetVolumeCapability()
 	if volCap == nil {
-		return gocsi.ErrVolumeCapabilityRequired
+		return status.Error(codes.InvalidArgument,
+			"volume capability required")
 	}
 
 	accMode := volCap.GetAccessMode()
 	if accMode == nil {
-		return gocsi.ErrAccessModeRequired
+		return status.Error(codes.InvalidArgument,
+			"volume access mode required")
 	}
 
 	// make sure device is valid
@@ -100,18 +102,8 @@ func publishVolume(
 	}
 
 	// make sure privDir exists and is a directory
-	privDirStat, err := os.Stat(privDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return status.Errorf(codes.Internal,
-				"plugin private dir: %s not pre-created", privDir)
-		}
-		return status.Errorf(codes.Internal,
-			"failed to stat private dir, err: %s", err.Error())
-	}
-	if !privDirStat.IsDir() {
-		return status.Errorf(codes.Internal,
-			"private dir: %s is not a directory", privDir)
+	if _, err := mkdir(privDir); err != nil {
+		return err
 	}
 
 	isBlock := false
@@ -133,7 +125,8 @@ func publishVolume(
 		typeSet = true
 	}
 	if !typeSet {
-		return gocsi.ErrAccessTypeRequired
+		return status.Error(codes.InvalidArgument,
+			"volume access type required")
 	}
 
 	// check that target is right type for vol type
@@ -383,7 +376,8 @@ func unpublishVolume(
 
 	target := req.GetTargetPath()
 	if target == "" {
-		return gocsi.ErrTargetPathRequired
+		return status.Error(codes.InvalidArgument,
+			"target path required")
 	}
 
 	// make sure device is valid

@@ -5,7 +5,7 @@ package main
 import (
 	"context"
 
-	"github.com/thecodeteam/gocsi/csp"
+	"github.com/thecodeteam/gocsi"
 
 	"github.com/thecodeteam/csi-scaleio/provider"
 	"github.com/thecodeteam/csi-scaleio/service"
@@ -13,7 +13,7 @@ import (
 
 // main is ignored when this package is built as a go plug-in
 func main() {
-	csp.Run(
+	gocsi.Run(
 		context.Background(),
 		service.Name,
 		"A ScaleIO Container Storage Interface (CSI) Plugin",
