@@ -24,3 +24,7 @@
 [[constraint]]
   name = "github.com/container-storage-interface/spec"
   version = "0.1.0"
+
+[[constraint]]
+  name = "github.com/akutz/memconn"
+  branch = "master"
