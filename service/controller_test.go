@@ -4,11 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
+	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/thecodeteam/csi-scaleio/service"
-	"github.com/thecodeteam/gocsi/utils"
 )
 
 func TestControllerGetCaps(t *testing.T) {
@@ -28,9 +25,7 @@ func TestControllerGetCaps(t *testing.T) {
 	}
 
 	resp, err := client.ControllerGetCapabilities(ctx,
-		&csi.ControllerGetCapabilitiesRequest{
-			Version: &utils.ParseVersions(service.SupportedVersions)[0],
-		})
+		&csi.ControllerGetCapabilitiesRequest{})
 
 	assert.NoError(t, err)
 	caps := resp.GetCapabilities()

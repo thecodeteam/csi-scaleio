@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
+	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/stretchr/testify/assert"
 	siotypes "github.com/thecodeteam/goscaleio/types/v1"
 )

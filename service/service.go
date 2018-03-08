@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
+	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
+	"github.com/rexray/gocsi"
+	csictx "github.com/rexray/gocsi/context"
 	log "github.com/sirupsen/logrus"
-	"github.com/thecodeteam/gocsi"
-	csictx "github.com/thecodeteam/gocsi/context"
 	sio "github.com/thecodeteam/goscaleio"
 	siotypes "github.com/thecodeteam/goscaleio/types/v1"
 
@@ -22,9 +22,6 @@ import (
 const (
 	// Name is the name of the CSI plug-in.
 	Name = "com.thecodeteam.scaleio"
-
-	// SupportedVersions is a list of supported CSI versions.
-	SupportedVersions = "0.1.0"
 
 	// KeyThickProvisioning is the key used to get a flag indicating that
 	// a volume should be thick provisioned from the volume create params
@@ -51,6 +48,7 @@ type Service interface {
 	BeforeServe(context.Context, *gocsi.StoragePlugin, net.Listener) error
 }
 
+// Opts defines service configuration options.
 type Opts struct {
 	Endpoint   string
 	User       string
@@ -64,6 +62,7 @@ type Opts struct {
 
 type service struct {
 	opts        Opts
+	mode        string
 	adminClient *sio.Client
 	system      *sio.System
 	volCache    []*siotypes.Volume
@@ -97,6 +96,7 @@ func (s *service) BeforeServe(
 			"thickprovision": s.opts.Thick,
 			"privatedir":     s.privDir,
 			"autoprobe":      s.opts.AutoProbe,
+			"mode":           s.mode,
 		}
 
 		if s.opts.Password != "" {
@@ -105,6 +105,9 @@ func (s *service) BeforeServe(
 
 		log.WithFields(fields).Infof("configured %s", Name)
 	}()
+
+	// Get the SP's operating mode.
+	s.mode = csictx.Getenv(ctx, gocsi.EnvVarMode)
 
 	opts := Opts{}
 
@@ -126,7 +129,7 @@ func (s *service) BeforeServe(
 	if guid, ok := csictx.LookupEnv(ctx, EnvSDCGUID); ok {
 		opts.SdcGUID = guid
 	}
-	if pd, ok := csictx.LookupEnv(ctx, gocsi.EnvVarPrivateMountDir); ok {
+	if pd, ok := csictx.LookupEnv(ctx, "X_CSI_PRIVATE_MOUNT_DIR"); ok {
 		s.privDir = pd
 	}
 	if s.privDir == "" {
@@ -153,6 +156,20 @@ func (s *service) BeforeServe(
 	opts.AutoProbe = pb(EnvAutoProbe)
 
 	s.opts = opts
+
+	// Do a controller probe
+	if !strings.EqualFold(s.mode, "node") {
+		if err := s.controllerProbe(ctx); err != nil {
+			return err
+		}
+	}
+
+	// Do a node probe
+	if !strings.EqualFold(s.mode, "controller") {
+		if err := s.nodeProbe(ctx); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -252,11 +269,11 @@ func (s *service) getStoragePoolID(name string) (string, error) {
 	return pool.ID, nil
 }
 
-func getCSIVolumeInfo(vol *siotypes.Volume) *csi.VolumeInfo {
+func getCSIVolume(vol *siotypes.Volume) *csi.Volume {
 
-	vi := &csi.VolumeInfo{
+	vi := &csi.Volume{
 		Id:            vol.ID,
-		CapacityBytes: uint64(vol.SizeInKb) * bytesInKiB,
+		CapacityBytes: int64(vol.SizeInKb * bytesInKiB),
 	}
 
 	return vi

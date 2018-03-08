@@ -2,6 +2,18 @@
 
 
 [[projects]]
+  name = "github.com/akutz/gofsutil"
+  packages = ["."]
+  revision = "56ae374ef75adf5ca8ea6b4b79d97175cb86deb2"
+  version = "v0.1.2"
+
+[[projects]]
+  name = "github.com/akutz/gosync"
+  packages = ["."]
+  revision = "94b0033d0b5fc254594c3174329c19356c2c4f63"
+  version = "v0.1.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/akutz/memconn"
   packages = ["."]
@@ -9,9 +21,9 @@
 
 [[projects]]
   name = "github.com/container-storage-interface/spec"
-  packages = ["lib/go/csi"]
-  revision = "9e88e4bfabeca1b8e4810555815f112159292ada"
-  version = "v0.1.0"
+  packages = ["lib/go/csi/v0"]
+  revision = "35d9f9d77954980e449e52c3f3e43c21bd8171f5"
+  version = "v0.2.0"
 
 [[projects]]
   name = "github.com/coreos/etcd"
@@ -62,6 +74,22 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/rexray/gocsi"
+  packages = [
+    ".",
+    "context",
+    "middleware/logging",
+    "middleware/requestid",
+    "middleware/serialvolume",
+    "middleware/serialvolume/etcd",
+    "middleware/serialvolume/types",
+    "middleware/specvalidator",
+    "utils"
+  ]
+  revision = "18c7ef7684f85786f76caeaceeada763ea6a182c"
+  version = "v0.4.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
@@ -74,28 +102,6 @@
   version = "v1.1.4"
 
 [[projects]]
-  name = "github.com/thecodeteam/gocsi"
-  packages = [
-    ".",
-    "context",
-    "middleware/logging",
-    "middleware/requestid",
-    "middleware/serialvolume",
-    "middleware/serialvolume/etcd",
-    "middleware/serialvolume/types",
-    "middleware/specvalidator",
-    "utils"
-  ]
-  revision = "908901d40a8676ecf5953e89019abd448aa237de"
-  version = "v0.3.1"
-
-[[projects]]
-  name = "github.com/thecodeteam/gofsutil"
-  packages = ["."]
-  revision = "c8c8c91566a91a907494e33a631b1b95c4aa0f19"
-  version = "v0.1.0"
-
-[[projects]]
   branch = "master"
   name = "github.com/thecodeteam/goscaleio"
   packages = [
@@ -104,12 +110,6 @@
     "types/v1"
   ]
   revision = "30be8284b32e1a53e2ac473e95275b24e6d583de"
-
-[[projects]]
-  name = "github.com/thecodeteam/gosync"
-  packages = ["."]
-  revision = "94b0033d0b5fc254594c3174329c19356c2c4f63"
-  version = "v0.1.0"
 
 [[projects]]
   branch = "master"
@@ -195,6 +195,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c0d54f96aaa6b7db02f2e312c2d3f492831db541823ceda08ee687b351837e97"
+  inputs-digest = "dcdd1eb476fe9d4347200fc994a068d3a6e721de3f74675c78670bede1e4de81"
   solver-name = "gps-cdcl"
   solver-version = 1

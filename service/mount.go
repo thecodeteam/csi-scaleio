@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/akutz/gofsutil"
+	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	log "github.com/sirupsen/logrus"
-	"github.com/thecodeteam/gofsutil"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
