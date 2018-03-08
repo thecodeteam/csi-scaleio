@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
+	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	log "github.com/sirupsen/logrus"
 	"github.com/thecodeteam/goscaleio"
 	"golang.org/x/net/context"
@@ -19,10 +19,21 @@ const (
 	drvCfg = "/opt/emc/scaleio/sdc/bin/drv_cfg"
 )
 
-var (
-	emptyNodePubResp   = &csi.NodePublishVolumeResponse{}
-	emptyNodeUnpubResp = &csi.NodeUnpublishVolumeResponse{}
-)
+func (s *service) NodeStageVolume(
+	ctx context.Context,
+	req *csi.NodeStageVolumeRequest) (
+	*csi.NodeStageVolumeResponse, error) {
+
+	return nil, status.Error(codes.Unimplemented, "")
+}
+
+func (s *service) NodeUnstageVolume(
+	ctx context.Context,
+	req *csi.NodeUnstageVolumeRequest) (
+	*csi.NodeUnstageVolumeResponse, error) {
+
+	return nil, status.Error(codes.Unimplemented, "")
+}
 
 func (s *service) NodePublishVolume(
 	ctx context.Context,
@@ -40,7 +51,7 @@ func (s *service) NodePublishVolume(
 		return nil, err
 	}
 
-	return emptyNodePubResp, nil
+	return &csi.NodePublishVolumeResponse{}, nil
 }
 
 func (s *service) NodeUnpublishVolume(
@@ -59,7 +70,7 @@ func (s *service) NodeUnpublishVolume(
 		return nil, err
 	}
 
-	return emptyNodeUnpubResp, nil
+	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
 func getMappedVol(id string) (*goscaleio.SdcMappedVolume, error) {
@@ -84,10 +95,10 @@ func getMappedVol(id string) (*goscaleio.SdcMappedVolume, error) {
 	return sdcMappedVol, nil
 }
 
-func (s *service) GetNodeID(
+func (s *service) NodeGetId(
 	ctx context.Context,
-	req *csi.GetNodeIDRequest) (
-	*csi.GetNodeIDResponse, error) {
+	req *csi.NodeGetIdRequest) (
+	*csi.NodeGetIdResponse, error) {
 
 	if s.opts.SdcGUID == "" {
 		if !s.opts.AutoProbe {
@@ -95,31 +106,27 @@ func (s *service) GetNodeID(
 				"Unable to get Node ID. Either it is not configured, "+
 					"or Node Service has not been probed")
 		}
-		req := &csi.NodeProbeRequest{}
-		if _, err := s.NodeProbe(ctx, req); err != nil {
+		if err := s.nodeProbe(ctx); err != nil {
 			return nil, err
 		}
 	}
-	return &csi.GetNodeIDResponse{
+	return &csi.NodeGetIdResponse{
 		NodeId: s.opts.SdcGUID,
 	}, nil
 }
 
-func (s *service) NodeProbe(
-	ctx context.Context,
-	req *csi.NodeProbeRequest) (
-	*csi.NodeProbeResponse, error) {
+func (s *service) nodeProbe(ctx context.Context) error {
 
 	if s.opts.SdcGUID == "" {
 		// try to get GUID using `drv_cfg` binary
 		if _, err := os.Stat(drvCfg); os.IsNotExist(err) {
-			return nil, status.Error(codes.FailedPrecondition,
+			return status.Error(codes.FailedPrecondition,
 				"unable to get SDC GUID via config or drv_cfg binary")
 		}
 
 		out, err := exec.Command(drvCfg, "--query_guid").CombinedOutput()
 		if err != nil {
-			return nil, status.Errorf(codes.FailedPrecondition,
+			return status.Errorf(codes.FailedPrecondition,
 				"error getting SDC GUID: %s", err.Error())
 		}
 
@@ -128,18 +135,18 @@ func (s *service) NodeProbe(
 	}
 
 	if !kmodLoaded() {
-		return nil, status.Error(codes.FailedPrecondition,
+		return status.Error(codes.FailedPrecondition,
 			"scini kernel module not loaded")
 	}
 
 	// make sure privDir is pre-created
 	if _, err := mkdir(s.privDir); err != nil {
-		return nil, status.Errorf(codes.Internal,
+		return status.Errorf(codes.Internal,
 			"plugin private dir: %s creation error: %s",
 			s.privDir, err.Error())
 	}
 
-	return &csi.NodeProbeResponse{}, nil
+	return nil
 }
 
 func kmodLoaded() bool {

@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
+	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	log "github.com/sirupsen/logrus"
 	"github.com/thecodeteam/goscaleio"
 	siotypes "github.com/thecodeteam/goscaleio/types/v1"
@@ -45,13 +45,6 @@ const (
 	errNoMultiMap             = "volume not enabled for mapping to multiple hosts"
 	errUnknownAccessMode      = "access mode cannot be UNKNOWN"
 	errNoMultiNodeWriter      = "multi-node with writer(s) only supported for block access type"
-)
-
-var (
-	emptyDelResp       = &csi.DeleteVolumeResponse{}
-	emptyProbeResp     = &csi.ControllerProbeResponse{}
-	emptyCtrlPubResp   = &csi.ControllerPublishVolumeResponse{}
-	emptyCtrlUnpubResp = &csi.ControllerUnpublishVolumeResponse{}
 )
 
 func (s *service) CreateVolume(
@@ -99,7 +92,7 @@ func (s *service) CreateVolume(
 
 	volumeParam := &siotypes.VolumeParam{
 		Name:           name,
-		VolumeSizeInKb: strconv.Itoa(sizeInKiB),
+		VolumeSizeInKb: fmt.Sprintf("%d", sizeInKiB),
 		VolumeType:     volType,
 	}
 	createResp, err := s.adminClient.CreateVolume(volumeParam, sp)
@@ -127,7 +120,7 @@ func (s *service) CreateVolume(
 		return nil, status.Errorf(codes.Unavailable,
 			"error retrieving volume details: %s", err.Error())
 	}
-	vi := getCSIVolumeInfo(vol)
+	vi := getCSIVolume(vol)
 
 	// since the volume could have already exists, double check that the
 	// volume has the expected parameters
@@ -142,13 +135,13 @@ func (s *service) CreateVolume(
 			"volume exists, but in different storage pool than requested")
 	}
 
-	if (vi.CapacityBytes / bytesInKiB) != uint64(sizeInKiB) {
+	if (vi.CapacityBytes / bytesInKiB) != sizeInKiB {
 		return nil, status.Errorf(codes.Unavailable,
 			"volume exists, but at different size than requested")
 	}
 
 	csiResp := &csi.CreateVolumeResponse{
-		VolumeInfo: vi,
+		Volume: vi,
 	}
 
 	s.clearCache()
@@ -165,7 +158,7 @@ func (s *service) clearCache() {
 // validateVolSize uses the CapacityRange range params to determine what size
 // volume to create, and returns an error if volume size would be greater than
 // the given limit. Returned size is in KiB
-func validateVolSize(cr *csi.CapacityRange) (int, error) {
+func validateVolSize(cr *csi.CapacityRange) (int64, error) {
 
 	minSize := cr.GetRequiredBytes()
 	maxSize := cr.GetLimitBytes()
@@ -177,9 +170,9 @@ func validateVolSize(cr *csi.CapacityRange) (int, error) {
 	}
 
 	var (
-		sizeGiB uint64
-		sizeKiB uint64
-		sizeB   uint64
+		sizeGiB int64
+		sizeKiB int64
+		sizeB   int64
 	)
 	// ScaleIO creates volumes in multiples of 8GiB, rounding up.
 	// Determine what actual size of volume will be, and check that
@@ -199,7 +192,7 @@ func validateVolSize(cr *csi.CapacityRange) (int, error) {
 	}
 
 	sizeKiB = sizeGiB * kiBytesInGiB
-	return int(sizeKiB), nil
+	return sizeKiB, nil
 }
 
 func (s *service) DeleteVolume(
@@ -217,7 +210,7 @@ func (s *service) DeleteVolume(
 	if err != nil {
 		if strings.EqualFold(err.Error(), sioGatewayVolumeNotFound) {
 			log.Debug("volume already deleted")
-			return emptyDelResp, nil
+			return &csi.DeleteVolumeResponse{}, nil
 		}
 		return nil, status.Errorf(codes.Internal,
 			"failure checking volume status before deletion: %s",
@@ -240,7 +233,7 @@ func (s *service) DeleteVolume(
 
 	s.clearCache()
 
-	return emptyDelResp, nil
+	return &csi.DeleteVolumeResponse{}, nil
 }
 
 func (s *service) ControllerPublishVolume(
@@ -306,7 +299,7 @@ func (s *service) ControllerPublishVolume(
 				// TODO check if published volume is compatible with this request
 				// volume already mapped
 				log.Debug("volume already mapped")
-				return emptyCtrlPubResp, nil
+				return &csi.ControllerPublishVolumeResponse{}, nil
 			}
 		}
 
@@ -345,7 +338,7 @@ func (s *service) ControllerPublishVolume(
 			"error mapping volume to node: %s", err.Error())
 	}
 
-	return emptyCtrlPubResp, nil
+	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
 func validateAccessType(
@@ -422,7 +415,7 @@ func (s *service) ControllerUnpublishVolume(
 
 	if !mappedToNode {
 		log.Debug("volume already unpublished")
-		return emptyCtrlUnpubResp, nil
+		return &csi.ControllerUnpublishVolumeResponse{}, nil
 	}
 
 	targetVolume := goscaleio.NewVolume(s.adminClient)
@@ -439,7 +432,7 @@ func (s *service) ControllerUnpublishVolume(
 			"error unmapping volume from node: %s", err.Error())
 	}
 
-	return emptyCtrlUnpubResp, nil
+	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
 func (s *service) ValidateVolumeCapabilities(
@@ -540,19 +533,19 @@ func (s *service) ListVolumes(
 	}
 
 	var (
-		startToken uint32
-		cacheLen   uint32
+		startToken int
+		cacheLen   int
 	)
 
 	if v := req.StartingToken; v != "" {
-		i, err := strconv.ParseUint(v, 10, 32)
+		i, err := strconv.ParseInt(v, 10, 32)
 		if err != nil {
 			return nil, status.Errorf(
 				codes.Aborted,
 				"unable to parse startingToken:%v into uint32",
 				req.StartingToken)
 		}
-		startToken = uint32(i)
+		startToken = int(i)
 	}
 
 	// Get the length of cached volumes. Do it in a funcion so as not to
@@ -560,14 +553,14 @@ func (s *service) ListVolumes(
 	func() {
 		s.volCacheRWL.RLock()
 		defer s.volCacheRWL.RUnlock()
-		cacheLen = uint32(len(s.volCache))
+		cacheLen = len(s.volCache)
 	}()
 
 	var (
-		lvols      uint32
+		lvols      int
 		sioVols    []*siotypes.Volume
 		err        error
-		maxEntries = req.MaxEntries
+		maxEntries = int(req.MaxEntries)
 	)
 
 	if startToken == 0 || (startToken > 0 && cacheLen == 0) {
@@ -579,7 +572,7 @@ func (s *service) ListVolumes(
 				"unable to list volumes: %s", err.Error())
 		}
 
-		lvols = uint32(len(sioVols))
+		lvols = len(sioVols)
 		if maxEntries > 0 && maxEntries < lvols {
 			// We want to cache this volume list so that we don't
 			// have to get all the volumes again on the next call
@@ -639,12 +632,12 @@ func (s *service) ListVolumes(
 
 	for i, vol := range source {
 		entries[i] = &csi.ListVolumesResponse_Entry{
-			VolumeInfo: getCSIVolumeInfo(vol),
+			Volume: getCSIVolume(vol),
 		}
 	}
 
 	var nextToken string
-	if n := startToken + uint32(len(source)); n < lvols {
+	if n := startToken + len(source); n < lvols {
 		nextToken = fmt.Sprintf("%d", n)
 	}
 
@@ -688,7 +681,7 @@ func (s *service) GetCapacity(
 			"unable to get system stats: %s", err.Error())
 	}
 	return &csi.GetCapacityResponse{
-		AvailableCapacity: uint64(stats.CapacityAvailableForVolumeAllocationInKb) * bytesInKiB,
+		AvailableCapacity: int64(stats.CapacityAvailableForVolumeAllocationInKb * bytesInKiB),
 	}, nil
 }
 
@@ -731,26 +724,23 @@ func (s *service) ControllerGetCapabilities(
 	}, nil
 }
 
-func (s *service) ControllerProbe(
-	ctx context.Context,
-	req *csi.ControllerProbeRequest) (
-	*csi.ControllerProbeResponse, error) {
+func (s *service) controllerProbe(ctx context.Context) error {
 
 	// Check that we have the details needed to login to the Gateway
 	if s.opts.Endpoint == "" {
-		return nil, status.Error(codes.FailedPrecondition,
+		return status.Error(codes.FailedPrecondition,
 			"missing ScaleIO Gateway endpoint")
 	}
 	if s.opts.User == "" {
-		return nil, status.Error(codes.FailedPrecondition,
+		return status.Error(codes.FailedPrecondition,
 			"missing ScaleIO MDM user")
 	}
 	if s.opts.Password == "" {
-		return nil, status.Error(codes.FailedPrecondition,
+		return status.Error(codes.FailedPrecondition,
 			"missing ScaleIO MDM password")
 	}
 	if s.opts.SystemName == "" {
-		return nil, status.Error(codes.FailedPrecondition,
+		return status.Error(codes.FailedPrecondition,
 			"missing ScaleIO system name")
 	}
 
@@ -759,7 +749,7 @@ func (s *service) ControllerProbe(
 		c, err := goscaleio.NewClientWithArgs(
 			s.opts.Endpoint, "", s.opts.Insecure, true)
 		if err != nil {
-			return nil, status.Errorf(codes.FailedPrecondition,
+			return status.Errorf(codes.FailedPrecondition,
 				"unable to create ScaleIO client: %s", err.Error())
 		}
 		s.adminClient = c
@@ -772,7 +762,7 @@ func (s *service) ControllerProbe(
 			Password: s.opts.Password,
 		})
 		if err != nil {
-			return nil, status.Errorf(codes.FailedPrecondition,
+			return status.Errorf(codes.FailedPrecondition,
 				"unable to login to ScaleIO Gateway: %s", err.Error())
 
 		}
@@ -782,14 +772,14 @@ func (s *service) ControllerProbe(
 		system, err := s.adminClient.FindSystem(
 			"", s.opts.SystemName, "")
 		if err != nil {
-			return nil, status.Errorf(codes.FailedPrecondition,
+			return status.Errorf(codes.FailedPrecondition,
 				"unable to find matching ScaleIO system name: %s",
 				err.Error())
 		}
 		s.system = system
 	}
 
-	return emptyProbeResp, nil
+	return nil
 }
 
 func (s *service) requireProbe(ctx context.Context) error {
@@ -799,7 +789,7 @@ func (s *service) requireProbe(ctx context.Context) error {
 				"Controller Service has not been probed")
 		}
 		log.Debug("probing controller service automatically")
-		if _, err := s.ControllerProbe(ctx, &csi.ControllerProbeRequest{}); err != nil {
+		if err := s.controllerProbe(ctx); err != nil {
 			return status.Errorf(codes.FailedPrecondition,
 				"failed to probe/init plugin: %s", err.Error())
 		}

@@ -5,7 +5,7 @@ package main
 import (
 	"context"
 
-	"github.com/thecodeteam/gocsi"
+	"github.com/rexray/gocsi"
 
 	"github.com/thecodeteam/csi-scaleio/provider"
 	"github.com/thecodeteam/csi-scaleio/service"
