@@ -157,17 +157,19 @@ func (s *service) BeforeServe(
 
 	s.opts = opts
 
-	// Do a controller probe
-	if !strings.EqualFold(s.mode, "node") {
-		if err := s.controllerProbe(ctx); err != nil {
-			return err
+	if _, ok := csictx.LookupEnv(ctx, "X_CSI_SCALEIO_NO_PROBE_ON_START"); !ok {
+		// Do a controller probe
+		if !strings.EqualFold(s.mode, "node") {
+			if err := s.controllerProbe(ctx); err != nil {
+				return err
+			}
 		}
-	}
 
-	// Do a node probe
-	if !strings.EqualFold(s.mode, "controller") {
-		if err := s.nodeProbe(ctx); err != nil {
-			return err
+		// Do a node probe
+		if !strings.EqualFold(s.mode, "controller") {
+			if err := s.nodeProbe(ctx); err != nil {
+				return err
+			}
 		}
 	}
 

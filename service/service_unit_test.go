@@ -60,7 +60,7 @@ func TestGetVolSize(t *testing.T) {
 				// error is expected
 				assert.Error(st, err)
 			} else {
-				assert.Equal(st, tt.sizeKiB, size)
+				assert.EqualValues(st, tt.sizeKiB, size)
 			}
 		})
 	}

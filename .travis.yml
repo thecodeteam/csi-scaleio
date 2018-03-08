@@ -3,6 +3,11 @@ sudo: false
 language: go
 go_import_path: github.com/thecodeteam/csi-scaleio
 go: 1.9.2
+
+env:
+  global:
+    - X_CSI_SCALEIO_NO_PROBE_ON_START=true
+
 install: true
 script:
   - go install .
