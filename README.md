@@ -1,3 +1,6 @@
+# This repo is archived
+The current version of this CSI driver is at https://github.com/dell/csi-vxflexos
+
 # CSI plugin for ScaleIO [![Build Status](http://travis-ci.org/thecodeteam/csi-scaleio.svg?branch=master)]
 
 ## Description
